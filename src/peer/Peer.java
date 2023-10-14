@@ -8,10 +8,13 @@ import java.util.*;
 
 public class Peer extends Thread {
 	private int peerId;
+	private List<Integer> peers;
 	private Set<Integer> pieces;
 
 	public Peer(int peerId) {
 		this.peerId = peerId;
+		peers = new ArrayList<>();
+		// read config file here
 		// peerList(?), isFileOwner(?), other initialization variables that are passed
 		// in to this constructor
 		// this.pieces = new HashSet<>(); ?
