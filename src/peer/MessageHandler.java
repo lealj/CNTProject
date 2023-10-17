@@ -10,8 +10,10 @@ public class MessageHandler {
     private String message; // message received from the client
     private String MESSAGE; // uppercase message send to the client
     private Socket connection;
-    private ObjectInputStream in; // stream read from the socket
-    private ObjectOutputStream out; // stream write to the socket
+    private ObjectInputStream in; // stream read from the socket ( this may be able to be switched to
+                                  // DataInputStream)
+    private ObjectOutputStream out; // stream write to the socket ( this may be able to be switched to
+                                    // DataInputStream)
 
     public MessageHandler(Socket socket, Peer peer, ObjectInputStream in, ObjectOutputStream out) {
         // get sender and receiver info
@@ -21,10 +23,23 @@ public class MessageHandler {
         this.out = out;
     }
 
-    public void run() {
-        // handshake
-        System.out.println("MessageHandler running...");
+    public static MessageHandler interpretMessage(String msg, int senderID, int receiverID) {
+        byte[] msg_bytes = msg.getBytes();
+        byte msgTypeValue = msg_bytes[4];
+        MessageType messageType = MessageType.fromValue(msgTypeValue);
+
+        switch (messageType) {
+            case BITFIELD:
+            case CHOKE:
+            case HANDSHAKE:
+            case INTERESTED:
+            case PIECE:
+            case REQUEST:
+            case UNCHOKE:
+            case UNINTERESTED:
+        }
+
+        return null;
     }
-    // function to decodeMessage: once decoded, rely on other message files to
-    // handle based on message type
+
 }
