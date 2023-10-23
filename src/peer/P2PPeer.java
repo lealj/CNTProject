@@ -13,6 +13,7 @@ public class P2PPeer {
         System.out.print("Enter your peer ID: ");
         String peerId = scanner.nextLine();
 
+        // Must be different port numbers
         System.out.print("Enter your port number to listen on: ");
         int peerPort = scanner.nextInt();
 
@@ -21,7 +22,6 @@ public class P2PPeer {
 
         // Threads for connections
         // If not using threads, connection ends up disconnecting
-
         new Thread(new Runnable() {
             public void run() {
                 try {
@@ -47,7 +47,6 @@ public class P2PPeer {
         while (true) {
 
             // Takes in the IP address and peer's port number to try and connect
-
             //System.out.println("");
             System.out.println("\nWaiting for peer connections on port " + peerPort + "...\n");
 
