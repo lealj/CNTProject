@@ -13,11 +13,11 @@ public class PeerInfo {
     private boolean hasFile;
 
     // Constructor that initializes values provided in parameter
-    public PeerInfo(int peerID, String hostName, int listeningPortNumber, boolean hasFile) {
+    public PeerInfo(int peerID, String hostName, int listeningPort, boolean hasFile) {
 
         this.peerID = peerID;
         this.hostName = hostName;
-        this.listeningPortNumber = listeningPortNumber;
+        this.listeningPort = listeningPort;
         this.hasFile = hasFile;
 
     }
