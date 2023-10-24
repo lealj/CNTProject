@@ -21,7 +21,9 @@ public enum MessageType {
     }
 
     public static MessageType fromValue(int val) {
+
         for (MessageType type : values()) {
+
             if (type.getValue() == val) {
                 return type;
             }

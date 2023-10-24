@@ -1,4 +1,7 @@
+package src.peer;
+
 import java.util.*;
+import java.io.IOException;
 import java.nio.file.*;
 
 // Reads key value pairs from file and store into a map

@@ -1,3 +1,5 @@
+package src.peer;
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -17,8 +19,9 @@ public class P2PPeer {
         System.out.print("Enter your port number to listen on: ");
         int peerPort = scanner.nextInt();
 
-        // "Eats" the newline because of interactions with using int after string newLine
-        scanner.nextLine(); 
+        // "Eats" the newline because of interactions with using int after string
+        // newLine
+        scanner.nextLine();
 
         // Threads for connections
         // If not using threads, connection ends up disconnecting
@@ -29,11 +32,13 @@ public class P2PPeer {
                     // Takes input and listens to the connection on port number above
                     ServerSocket listener = new ServerSocket(peerPort);
 
-                    while(true){
+                    while (true) {
 
-                        // If succesfully connected to port number, sends message to peer that connection was successful
+                        // If succesfully connected to port number, sends message to peer that
+                        // connection was successful
                         Socket peerSocket = listener.accept();
-                        System.out.println("\nPeer IP " + peerSocket.getRemoteSocketAddress() + " has successfully connected to you");
+                        System.out.println("\nPeer IP " + peerSocket.getRemoteSocketAddress()
+                                + " has successfully connected to you");
                         new Thread(new CommunicationHandler(peerSocket)).start();
 
                     }
@@ -47,16 +52,16 @@ public class P2PPeer {
         while (true) {
 
             // Takes in the IP address and peer's port number to try and connect
-            //System.out.println("");
+            // System.out.println("");
             System.out.println("\nWaiting for peer connections on port " + peerPort + "...\n");
 
             System.out.print("Enter the IP address of peer to connect: ");
             String peerIp = scanner.nextLine();
-            //scanner.nextLine();
+            // scanner.nextLine();
 
             System.out.print("\nEnter the port of peer to connect: ");
             int peerConnectPort = scanner.nextInt();
-            scanner.nextLine(); 
+            scanner.nextLine();
 
             try {
 
@@ -107,7 +112,7 @@ public class P2PPeer {
                         out.writeUTF("TEXT");
                         out.writeUTF(peerId + ": " + message);
 
-                    }      
+                    }
 
                 }
 
@@ -141,14 +146,16 @@ class CommunicationHandler implements Runnable {
                     System.out.println("\nReceived: " + receivedMessage);
                 }
 
-                // Checks if peer sends a file instead of string. If so, send file directory and ask if they want to download
+                // Checks if peer sends a file instead of string. If so, send file directory and
+                // ask if they want to download
                 else if ("FILE".equals(type)) {
 
-                    // Reads uTF-8 encoded string from DataInputStream and the size of file sent to peer
+                    // Reads uTF-8 encoded string from DataInputStream and the size of file sent to
+                    // peer
                     String fileName = in.readUTF();
                     long fileSize = in.readLong();
                     File file = new File("received_" + fileName);
-                    
+
                     byte[] buffer = new byte[4096];
                     int bytesRead;
                     long totalBytesRead = 0;
@@ -159,7 +166,7 @@ class CommunicationHandler implements Runnable {
                     String response = scanner.nextLine();
 
                     // Checks if peer types yes or no. If yes, write file with new name and save it
-                    if("yes".equalsIgnoreCase(response)) {
+                    if ("yes".equalsIgnoreCase(response)) {
                         FileOutputStream fos = new FileOutputStream(file);
 
                         while (totalBytesRead < fileSize) {
@@ -171,11 +178,11 @@ class CommunicationHandler implements Runnable {
                         fos.close();
                         System.out.println("\nFile saved as: " + file.getName());
                         System.out.println(new File(".").getAbsolutePath());
-                        
-                    } 
-                    
+
+                    }
+
                     else {
-                        
+
                         // Consume the bytes for the file without saving them
                         while (totalBytesRead < fileSize) {
                             bytesRead = in.read(buffer);
@@ -191,4 +198,3 @@ class CommunicationHandler implements Runnable {
         }
     }
 }
-
