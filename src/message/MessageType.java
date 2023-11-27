@@ -1,4 +1,4 @@
-package src.peer;
+package message;
 
 public enum MessageType {
     BITFIELD(0),

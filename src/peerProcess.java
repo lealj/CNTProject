@@ -1,0 +1,130 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+import peer.Client;
+import peer.CommonConfig;
+import peer.PeerInfo;
+import peer.Server;
+
+/*
+ * To run: 
+ * javac -g peerProcess.java
+ * javac -g peer/*.java 
+ * java peerProcess 1001
+ */
+
+public class peerProcess {
+    public static void main(String args[]) throws FileNotFoundException {
+        int currentPeerID = Integer.parseInt(args[0]);
+        //int currentPeerID = Integer.parseInt("1001");
+        // Reads peer config file and creates the peers.
+        List<PeerInfo> peers = readPeerConfig("PeerInfoTest.cfg");
+
+        // Reads common config file and creates a CommonConfig object (shared by all peers).
+        CommonConfig commonConfig = readCommonConfig("Common.cfg");
+
+        // Bitfield data
+        int fileSize = commonConfig.getFileSize();
+        int numPieces = (int) Math.ceil((double) fileSize / commonConfig.getPieceSize());
+
+        PeerInfo currentPeer = null;
+        for (PeerInfo peer : peers) {
+            if (peer.getPeerID() == currentPeerID) {
+                currentPeer = peer;
+                currentPeer.updateBitfieldSize(numPieces);
+                break;
+            }
+        }
+
+        createServer(currentPeer);
+        createClients(peers);
+    }
+
+    // handle "outgoing connections" for each peer (client). 
+    private static void createServer(PeerInfo peer) {   
+        Server server = new Server(peer);
+        Thread serverThread = new Thread(server);
+        serverThread.start();
+    }
+
+    private static void createClients(List<PeerInfo> peers) {
+        for (int i = 0; i < peers.size(); i++) {
+            PeerInfo currentPeer = peers.get(i);
+            for (int j = 0; j < i; j++) {
+                PeerInfo otherPeer = peers.get(j);
+                //System.out.println(currentPeer.getPeerID() + " : " + otherPeer.getPeerID());
+                Client client = new Client(currentPeer, otherPeer);
+                client.Connect();
+            }
+        }
+    }
+
+    private static List<PeerInfo> readPeerConfig(String filePath) throws FileNotFoundException {
+        List<PeerInfo> peers = new ArrayList<>();
+
+        File configFile = new File(filePath);
+        Scanner scanner = new Scanner(configFile);
+
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            String[] parts = line.split(" ");
+
+            int peerID = Integer.parseInt(parts[0]);
+            String peerAddress = parts[1];
+            int peerPort = Integer.parseInt(parts[2]);
+            boolean hasFile = Integer.parseInt(parts[3]) == 1;
+
+            PeerInfo peer = new PeerInfo(peerID, peerAddress, peerPort, hasFile);
+            System.out.println("Peer " + peer.getPeerID() + " created.");
+            peers.add(peer);
+        }
+        scanner.close();
+
+        return peers;
+    }
+
+    private static CommonConfig readCommonConfig(String filePath) throws FileNotFoundException {
+        File commonFile = new File(filePath);
+        Scanner scanner = new Scanner(commonFile);
+
+        int numPreferredNeighbors = 0;
+        int unchokingInterval = 0;
+        int optimisticUnchokingInterval = 0;
+        String fileName = "";
+        int fileSize = 0;
+        int pieceSize = 0;
+
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            String[] parts = line.split(" ");
+            switch (parts[0]) {
+                case "NumberOfPreferredNeighbors":
+                    numPreferredNeighbors = Integer.parseInt(parts[1]);
+                    break;
+                case "UnchokingInterval":
+                    unchokingInterval = Integer.parseInt(parts[1]);
+                    break;
+                case "OptimisticUnchokingInterval":
+                    optimisticUnchokingInterval = Integer.parseInt(parts[1]);
+                    break;
+                case "FileName":
+                    fileName = parts[1];
+                    break;
+                case "FileSize":
+                    fileSize = Integer.parseInt(parts[1]);
+                    break;
+                case "PieceSize":
+                    pieceSize = Integer.parseInt(parts[1]);
+                    break;
+                default:
+                    break;
+            }
+        }
+        scanner.close();
+        System.out.println("Common config read.");
+        return new CommonConfig(numPreferredNeighbors, unchokingInterval, optimisticUnchokingInterval, fileName, fileSize, pieceSize);
+    }
+}

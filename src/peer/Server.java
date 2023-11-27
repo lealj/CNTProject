@@ -1,42 +1,57 @@
-package src.peer;
+package peer;
 
-import java.net.*;
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 
-// move functionality to p2ppeer
-public class Server {
-    private static final int sPort = 8000;
-    private Peer peer;
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
-    private Socket sock;
+public class Server implements Runnable {
+    private PeerInfo peer;
+    private Socket socket;
+    private ObjectOutputStream outputStream;
+    private ObjectInputStream inputStream;
 
-    public Server(Peer peer) {
+    public Server(PeerInfo peer) {
         this.peer = peer;
+        System.out.println("Peer " + peer.getPeerID() + " server created.");
     }
 
-    public void run() throws Exception {
-        System.out.println("Server running.");
-        ServerSocket listener = new ServerSocket(sPort);
-
-        int peerID = 1001; // example
-
+    @Override
+    public void run() {
+        ServerSocket listener = null;
+        try {
+            listener = new ServerSocket(peer.getListeningPortNumber());
+        } catch (IOException e) {
+            System.err.println("Problem starting server");
+            e.printStackTrace();
+        }
         try {
             while (true) {
-                sock = listener.accept();
+                socket = listener.accept();
+
+                outputStream = new ObjectOutputStream(socket.getOutputStream());
+                outputStream.flush();
+
+                inputStream = new ObjectInputStream(socket.getInputStream());
+                
+                MessageHandler handler = new MessageHandler(inputStream, outputStream, peer, socket); 
+                System.out.println("(Server) Message handler created for Peer " + peer.getPeerID() );
+                //start handler on thread
+                Thread serverThread = new Thread(handler);
+                serverThread.start();
             }
+            
         } catch (IOException err) {
-            System.err.println("Error with server");
             err.printStackTrace();
         } finally {
-            // maybe if statement should go here
-            System.out.println("Listener closed");
-            listener.close();
+            try {
+                listener.close();
+            } catch (IOException err) {
+                err.printStackTrace();
+            }
         }
 
     }
-    // Implement constructors and methods for listening and accepting incoming
-    // connections
-    // e.g., startServer(), acceptIncomingConnections(), sendMessage(),
-    // receiveMessage(), etc.
+    
 }

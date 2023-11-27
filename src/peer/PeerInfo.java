@@ -1,25 +1,37 @@
-package src.peer;
+package peer;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import java.io.ObjectOutputStream;
 
 public class PeerInfo {
-
     private int listeningPort;
     private int peerID;
     private String hostName;
     private boolean hasFile;
-
+    private Bitfield bitfield;
+    private ObjectOutputStream outputStream;
+    
     // Constructor that initializes values provided in parameter
     public PeerInfo(int peerID, String hostName, int listeningPort, boolean hasFile) {
-
         this.peerID = peerID;
         this.hostName = hostName;
         this.listeningPort = listeningPort;
         this.hasFile = hasFile;
+        this.outputStream = null;
+    }
 
+    public void initializeOutputStream(ObjectOutputStream outputStream) {
+        this.outputStream = outputStream;
+    }
+
+    public void sendMessage(Object message) {
+        try {
+            System.out.println("Peer " + peerID +"Attempting to send message");
+            outputStream.writeObject(message);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     // Getters that return the value of the constructor above
@@ -39,8 +51,23 @@ public class PeerInfo {
         return hostName;
     }
 
+    public Bitfield getBitfield() {
+        return bitfield;
+    }
+
+    public void updateBitfieldSize(int numPieces) {
+        int bitfieldSize = (int) Math.ceil((double) numPieces/8);
+        this.bitfield = new Bitfield(bitfieldSize);
+        if (hasFile) {
+            bitfield.setAllBitsToOne();
+        } else {
+            bitfield.setAllBitsToZero();
+        }
+    }
+
     // Reads data from a file, having each line be information about a peer and
     // constructs list of PeerInfo objects from that data.
+    /*
     public static List<PeerInfo> loadFromFile(String filename) throws IOException {
 
         List<PeerInfo> peers = new ArrayList<>();
@@ -57,4 +84,5 @@ public class PeerInfo {
         return peers;
 
     }
+    */
 }
