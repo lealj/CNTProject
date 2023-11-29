@@ -1,15 +1,18 @@
 package peer;
 
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PeerInfo {
     private int listeningPort;
     private int peerID;
     private String hostName;
     private boolean hasFile;
-    private Bitfield bitfield;
-    private ObjectOutputStream outputStream;
+    private byte[] bitfield;
+
+    private boolean hasNothing;
+
+    private Map<Integer, byte[]> neighborBitfieldTracker;
 
     // Constructor that initializes values provided in parameter
     public PeerInfo(int peerID, String hostName, int listeningPort, boolean hasFile) {
@@ -18,24 +21,41 @@ public class PeerInfo {
         this.listeningPort = listeningPort;
         this.hasFile = hasFile;
         this.bitfield = null;
+
+        this.hasNothing = true;
+        this.neighborBitfieldTracker = new HashMap<>();
         // this.outputStream = null;
     }
 
-    /*
-     * public void initializeOutputStream(ObjectOutputStream outputStream) {
-     * this.outputStream = outputStream;
-     * }
-     * 
-     * public void sendMessage(Object message) {
-     * try {
-     * System.out.println("Peer " + peerID +"Attempting to send message");
-     * outputStream.writeObject(message);
-     * outputStream.flush();
-     * } catch (IOException e) {
-     * e.printStackTrace();
-     * }
-     * }
-     */
+    public void initializeBitfield(int size) {
+        this.bitfield = new byte[size];
+        if (this.hasFile) {
+            for (int i = 0; i < size; i++) {
+                this.bitfield[i] = (byte) 0xFF; // Set all bits to 1
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                this.bitfield[i] = (byte) 0x00; // Set all bits to 0
+            }
+        }
+        System.out.println(bitfield.length);
+    }
+
+    public void setAllBitsToOne() {
+        for (int i = 0; i < bitfield.length; i++) {
+            bitfield[i] = (byte) 0xFF; // Set all bits to 1
+        }
+    }
+
+    public void setAllBitsToZero() {
+        for (int i = 0; i < bitfield.length; i++) {
+            bitfield[i] = (byte) 0x00; // Set all bits to 0
+        }
+    }
+
+    public byte[] getBitfield() {
+        return bitfield;
+    }
 
     // Getters that return the value of the constructor above
     public int getListeningPortNumber() {
@@ -52,20 +72,6 @@ public class PeerInfo {
 
     public String getHostName() {
         return hostName;
-    }
-
-    public Bitfield getBitfieldObject() {
-        return bitfield;
-    }
-
-    public void updateBitfieldSize(int numPieces) {
-        int bitfieldSize = (int) Math.ceil((double) numPieces / 8);
-        this.bitfield = new Bitfield(bitfieldSize);
-        if (hasFile) {
-            bitfield.setAllBitsToOne();
-        } else {
-            bitfield.setAllBitsToZero();
-        }
     }
 
     // Reads data from a file, having each line be information about a peer and

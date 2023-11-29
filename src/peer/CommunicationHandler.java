@@ -8,8 +8,8 @@ import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import message.MessageType;
 import message.MessageGenerator;
+import message.MessageType;
 
 class CommunicationHandler implements Runnable {
     private ObjectOutputStream outputStream;
@@ -94,13 +94,13 @@ class CommunicationHandler implements Runnable {
 
         if (msg.length == 32) {
             // dealing with handshake message - send a bitfield
-            // System.out.println("handshake received");
 
             // this peers bitfield
-            byte[] bitfield = peer.getBitfieldObject().getBitfield();
-            System.out.println("Peer id: " + peer.getPeerID() + " Bitfield: " + bytesToHex(bitfield));
-
-            sendMessage(bitfield);
+            if (!peer.hasNothing) {
+                byte[] bitfield = peer.getBitfield();
+                byte[] bitfieldMessage = messageGenerator.createBitfieldMessage(bitfield);
+                sendMessage(bitfieldMessage);
+            }
 
             return;
         }
@@ -127,5 +127,6 @@ class CommunicationHandler implements Runnable {
             System.out.println("Message type null");
             return;
         }
+
     }
 }

@@ -1,14 +1,15 @@
 package message;
 
 public enum MessageType {
-    BITFIELD(0),
-    CHOKE(1),
-    HANDSHAKE(2),
-    INTERESTED(3),
-    PIECE(4),
-    REQUEST(5),
-    UNCHOKE(6),
-    UNINTERESTED(7);
+
+    CHOKE(0),
+    UNCHOKE(1),
+    INTERESTED(2),
+    UNINTERESTED(3),
+    HAVE(4),
+    BITFIELD(5),
+    REQUEST(6),
+    PIECE(7);
 
     private final int val;
 

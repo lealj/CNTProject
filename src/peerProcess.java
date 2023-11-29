@@ -33,7 +33,7 @@ public class peerProcess {
 
         PeerInfo currentPeer = null;
         for (PeerInfo peer : peers) {
-            peer.updateBitfieldSize(numPieces);
+            peer.initializeBitfield(numPieces);
             if (peer.getPeerID() == currentPeerID) {
                 currentPeer = peer;
             }

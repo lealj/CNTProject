@@ -1,5 +1,7 @@
 package message;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class MessageGenerator {
@@ -25,18 +27,36 @@ public class MessageGenerator {
     }
 
     public byte[] createBitfieldMessage(byte[] bitfield) {
-        int bitfieldLength = (bitfield.length + 7) / 8;
-        byte[] message = new byte[bitfieldLength + 5];
-        ByteBuffer buffer = ByteBuffer.wrap(message);
+        int totalLength = 0;
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        // Message length (excluding itself)
-        buffer.putInt(bitfieldLength + 1);
-        // Message type: bitfield
-        buffer.put((byte) 5);
-        // Bitfield payload
-        buffer.put(bitfield);
+        byte[] lengthBytes;
 
-        return message;
+        byte[] messageTypeBytes = new byte[1];
+        messageTypeBytes[0] = 5;
+
+        totalLength += messageTypeBytes.length;
+        totalLength += bitfield.length;
+
+        ByteBuffer byteBufferLength = ByteBuffer.allocate(4);
+        byteBufferLength.putInt(totalLength);
+        lengthBytes = byteBufferLength.array();
+
+        try {
+            outputStream.write(lengthBytes);
+            outputStream.write(messageTypeBytes);
+            outputStream.write(bitfield);
+        } catch (Exception e) {
+            e.printStackTrace(); // Handle the exception properly based on your application logic
+        } finally {
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace(); // Handle the closing exception
+            }
+        }
+
+        return outputStream.toByteArray();
     }
 
     public byte[] sendChokeMessage() {
