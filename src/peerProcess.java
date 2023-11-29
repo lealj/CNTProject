@@ -13,17 +13,18 @@ import peer.Server;
  * To run: 
  * javac -g peerProcess.java
  * javac -g peer/*.java 
- * java peerProcess 1001
+ * java peerProcess 1001 , java peerProcess 1002, ...
  */
 
 public class peerProcess {
     public static void main(String args[]) throws FileNotFoundException {
         int currentPeerID = Integer.parseInt(args[0]);
-        //int currentPeerID = Integer.parseInt("1001");
-        // Reads peer config file and creates the peers.
+
+        // reads peer config file and creates the peers
         List<PeerInfo> peers = readPeerConfig("PeerInfoTest.cfg");
 
-        // Reads common config file and creates a CommonConfig object (shared by all peers).
+        // reads common config file and creates a CommonConfig object (shared by all
+        // peers)
         CommonConfig commonConfig = readCommonConfig("Common.cfg");
 
         // Bitfield data
@@ -40,23 +41,22 @@ public class peerProcess {
         }
 
         createServer(currentPeer);
-        createClients(peers);
+        createClients(currentPeer, peers);
     }
 
-    // handle "outgoing connections" for each peer (client). 
-    private static void createServer(PeerInfo peer) {   
+    // handle "outgoing connections" for each peer (client).
+    private static void createServer(PeerInfo peer) {
         Server server = new Server(peer);
         Thread serverThread = new Thread(server);
         serverThread.start();
     }
 
-    private static void createClients(List<PeerInfo> peers) {
+    private static void createClients(PeerInfo currentPeer, List<PeerInfo> peers) {
+        int currentPeerID = currentPeer.getPeerID();
         for (int i = 0; i < peers.size(); i++) {
-            PeerInfo currentPeer = peers.get(i);
-            for (int j = 0; j < i; j++) {
-                PeerInfo otherPeer = peers.get(j);
-                //System.out.println(currentPeer.getPeerID() + " : " + otherPeer.getPeerID());
-                Client client = new Client(currentPeer, otherPeer);
+            int otherPeerID = peers.get(i).getPeerID();
+            if (otherPeerID != currentPeerID && otherPeerID < currentPeerID) {
+                Client client = new Client(currentPeer, peers.get(i));
                 client.Connect();
             }
         }
@@ -125,6 +125,7 @@ public class peerProcess {
         }
         scanner.close();
         System.out.println("Common config read.");
-        return new CommonConfig(numPreferredNeighbors, unchokingInterval, optimisticUnchokingInterval, fileName, fileSize, pieceSize);
+        return new CommonConfig(numPreferredNeighbors, unchokingInterval, optimisticUnchokingInterval, fileName,
+                fileSize, pieceSize);
     }
 }

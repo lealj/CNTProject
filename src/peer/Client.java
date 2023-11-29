@@ -21,15 +21,16 @@ public class Client {
         Socket socket = null;
         try {
             socket = new Socket(otherPeer.getHostName(), otherPeer.getListeningPortNumber());
-            
+
             outputStream = new ObjectOutputStream(socket.getOutputStream());
             outputStream.flush();
 
             inputStream = new ObjectInputStream(socket.getInputStream());
 
-            MessageHandler messageHandler = new MessageHandler(inputStream, outputStream, peer, socket);
+            CommunicationHandler messageHandler = new CommunicationHandler(inputStream, outputStream, peer, socket);
 
-            System.out.println("(Client) Peer " + peer.getPeerID() + " attempts to connect to Peer " + otherPeer.getPeerID());
+            System.out.println(
+                    "(Client) Peer " + peer.getPeerID() + " attempts to connect to Peer " + otherPeer.getPeerID());
 
             Thread messageHandlerThread = new Thread(messageHandler);
             messageHandlerThread.start();
@@ -37,6 +38,6 @@ public class Client {
 
             err.printStackTrace();
 
-        } 
+        }
     }
 }

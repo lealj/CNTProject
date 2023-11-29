@@ -34,14 +34,14 @@ public class Server implements Runnable {
                 outputStream.flush();
 
                 inputStream = new ObjectInputStream(socket.getInputStream());
-                
-                MessageHandler handler = new MessageHandler(inputStream, outputStream, peer, socket); 
-                System.out.println("(Server) Message handler created for Peer " + peer.getPeerID() );
-                //start handler on thread
+
+                CommunicationHandler handler = new CommunicationHandler(inputStream, outputStream, peer, socket);
+                System.out.println("(Server) Message handler created for Peer " + peer.getPeerID());
+                // start handler on thread
                 Thread serverThread = new Thread(handler);
                 serverThread.start();
             }
-            
+
         } catch (IOException err) {
             err.printStackTrace();
         } finally {
@@ -53,5 +53,5 @@ public class Server implements Runnable {
         }
 
     }
-    
+
 }
