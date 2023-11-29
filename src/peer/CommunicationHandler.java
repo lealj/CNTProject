@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
 import message.MessageType;
 import message.MessageGenerator;
 
@@ -14,6 +17,7 @@ class CommunicationHandler implements Runnable {
     private PeerInfo peer;
     private boolean hasSentMessage;
     private Socket socket;
+    private MessageGenerator messageGenerator;
 
     public CommunicationHandler(ObjectInputStream inputStream, ObjectOutputStream outputStream, PeerInfo peer,
             Socket socket) {
@@ -22,7 +26,7 @@ class CommunicationHandler implements Runnable {
         this.outputStream = outputStream;
         this.hasSentMessage = false;
         this.socket = socket;
-        peer.initializeOutputStream(outputStream);
+        this.messageGenerator = new MessageGenerator();
     }
 
     @Override
@@ -31,66 +35,97 @@ class CommunicationHandler implements Runnable {
         // +"..");
 
         // Send handshake before while loop
-
-        // sample send message
-        if (peer.getPeerID() == 1002) {
-            peer.sendMessage("Hi, how are you");
-        } else {
-            peer.sendMessage("Good, you?");
-        }
+        byte[] handshakeMessage = messageGenerator.handshakeMessage(peer.getPeerID());
+        sendMessage(handshakeMessage);
 
         while (true) {
             // exit while loop if this.peer has the file and all other neighbors do as well.
             try {
                 Object receivedMessage = inputStream.readObject();
 
-                if (receivedMessage instanceof String) {
-                    String msg = (String) receivedMessage;
+                if (receivedMessage instanceof byte[]) {
+                    byte[] msg = (byte[]) receivedMessage;
                     interpretMessage(msg);
-                } else {
-                    // Handle other types of messages if needed
                 }
+
             } catch (EOFException e) {
-                System.out.println(" Peer: " + peer.getPeerID() + " Port: " + peer.getListeningPortNumber());
                 System.err.println("Socket reached end of stream (EOF). " + "Peer: " + peer.getPeerID() + " Port: "
                         + peer.getListeningPortNumber());
             } catch (SocketException e) {
-                System.out.println(" Peer: " + peer.getPeerID() + " Port: " + peer.getListeningPortNumber());
-                System.err.println("Socket closed. Continuing...");
+                System.err.println("Socket closed. Continuing... " + peer.getPeerID());
+
+                // COULD CAUSE ISSUES IN TESTING *****************************
                 System.exit(0);
+
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
                 break;
-            } finally {
-                try {
-                    inputStream.close();
-                    outputStream.close();
-                    socket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
     }
 
-    public CommunicationHandler interpretMessage(String msg) {
-        System.out.println("Peer " + peer.getPeerID() + " received message: " + msg);
+    public void sendMessage(byte[] message) {
+        try {
+            if (outputStream == null) {
+                System.out.println("output stream null");
+            }
+            // System.out.println("Peer " + peer.getPeerID() + " attempts to send message");
+            outputStream.writeObject(message);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-        byte[] msg_bytes = msg.getBytes();
-        byte msgTypeValue = msg_bytes[4];
+    public String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte aByte : bytes) {
+            String hex = Integer.toHexString(0xff & aByte);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    public void interpretMessage(byte[] msg) {
+        // System.out.println("Peer " + peer.getPeerID() + " received message: " + msg);
+
+        if (msg.length == 32) {
+            // dealing with handshake message - send a bitfield
+            // System.out.println("handshake received");
+
+            // this peers bitfield
+            byte[] bitfield = peer.getBitfieldObject().getBitfield();
+            System.out.println("Peer id: " + peer.getPeerID() + " Bitfield: " + bytesToHex(bitfield));
+
+            sendMessage(bitfield);
+
+            return;
+        }
+
+        byte msgTypeValue = msg[4];
         MessageType messageType = MessageType.fromValue(msgTypeValue);
 
-        switch (messageType) {
-            case BITFIELD:
-            case CHOKE:
-                // return new Choke(sender, receiver);
-            case HANDSHAKE:
-            case INTERESTED:
-            case PIECE:
-            case REQUEST:
-            case UNCHOKE:
-            case UNINTERESTED:
+        if (messageType != null) {
+            switch (messageType) {
+                case BITFIELD:
+                    System.out.println("Bitfield received");
+                    break;
+                case CHOKE:
+                case INTERESTED:
+                case PIECE:
+                case REQUEST:
+                case UNCHOKE:
+                case UNINTERESTED:
+                default:
+                    System.out.println("Default message type case");
+                    break;
+            }
+        } else {
+            System.out.println("Message type null");
+            return;
         }
-        return null;
     }
 }

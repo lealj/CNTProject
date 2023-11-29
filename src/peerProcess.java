@@ -33,10 +33,9 @@ public class peerProcess {
 
         PeerInfo currentPeer = null;
         for (PeerInfo peer : peers) {
+            peer.updateBitfieldSize(numPieces);
             if (peer.getPeerID() == currentPeerID) {
                 currentPeer = peer;
-                currentPeer.updateBitfieldSize(numPieces);
-                break;
             }
         }
 
@@ -78,7 +77,6 @@ public class peerProcess {
             boolean hasFile = Integer.parseInt(parts[3]) == 1;
 
             PeerInfo peer = new PeerInfo(peerID, peerAddress, peerPort, hasFile);
-            System.out.println("Peer " + peer.getPeerID() + " created.");
             peers.add(peer);
         }
         scanner.close();
@@ -124,7 +122,6 @@ public class peerProcess {
             }
         }
         scanner.close();
-        System.out.println("Common config read.");
         return new CommonConfig(numPreferredNeighbors, unchokingInterval, optimisticUnchokingInterval, fileName,
                 fileSize, pieceSize);
     }
