@@ -10,20 +10,27 @@ public class MessageGenerator {
      */
 
     public byte[] handshakeMessage(int peerID) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        // Entire message is 32 bytes
-        byte[] handshakeMessage = new byte[32];
+        byte[] headerBytes = "P2PFILESHARINGPROJ".getBytes();
+        byte[] zeroBits = new byte[10];
+        byte[] peerIDBytes = ByteBuffer.allocate(4).putInt(peerID).array();
 
-        // Handshake header is 18 byte string called P2PFILESHARINGPROJ
-        System.arraycopy("P2PFILESHARINGPROJ".getBytes(), 0, handshakeMessage, 0, 18);
+        try {
+            outputStream.write(headerBytes);
+            outputStream.write(zeroBits);
+            outputStream.write(peerIDBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
-        // Followed by 10 byte zero bits
-        System.arraycopy(new byte[10], 0, handshakeMessage, 18, 10);
-
-        // Followed by 4 byte integer representation of peerID
-        System.arraycopy(ByteBuffer.allocate(4).putInt(peerID).array(), 0, handshakeMessage, 28, 4);
-
-        return handshakeMessage;
+        return outputStream.toByteArray();
     }
 
     public byte[] createBitfieldMessage(byte[] bitfield) {

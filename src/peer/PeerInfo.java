@@ -10,7 +10,7 @@ public class PeerInfo {
     private boolean hasFile;
     private byte[] bitfield;
 
-    private boolean hasNothing;
+    public boolean hasNothing;
 
     private Map<Integer, byte[]> neighborBitfieldTracker;
 
@@ -22,9 +22,25 @@ public class PeerInfo {
         this.hasFile = hasFile;
         this.bitfield = null;
 
-        this.hasNothing = true;
+        this.hasNothing = hasFile ? true : false;
         this.neighborBitfieldTracker = new HashMap<>();
         // this.outputStream = null;
+    }
+
+    public void createBitfieldMapEntry(int neighborID) {
+        if (!neighborBitfieldTracker.containsKey(neighborID)) {
+            neighborBitfieldTracker.put(neighborID, null);
+        }
+    }
+
+    public void storeNeighborBitfield(byte[] msg) {
+        // get bitfield from msg
+        // store in neighborBitfieldTracker
+        // determine if they have pieces we don't have
+    }
+
+    public boolean neighborHasVitalPieces(byte[] otherPeerBitfield) {
+        return false;
     }
 
     public void initializeBitfield(int size) {
@@ -38,7 +54,6 @@ public class PeerInfo {
                 this.bitfield[i] = (byte) 0x00; // Set all bits to 0
             }
         }
-        System.out.println(bitfield.length);
     }
 
     public void setAllBitsToOne() {
@@ -53,11 +68,12 @@ public class PeerInfo {
         }
     }
 
+    /* GETTERS */
+
     public byte[] getBitfield() {
         return bitfield;
     }
 
-    // Getters that return the value of the constructor above
     public int getListeningPortNumber() {
         return listeningPort;
     }
@@ -73,28 +89,4 @@ public class PeerInfo {
     public String getHostName() {
         return hostName;
     }
-
-    // Reads data from a file, having each line be information about a peer and
-    // constructs list of PeerInfo objects from that data.
-    /*
-     * public static List<PeerInfo> loadFromFile(String filename) throws IOException
-     * {
-     * 
-     * List<PeerInfo> peers = new ArrayList<>();
-     * List<String> lines = Files.readAllLines(Paths.get(filename));
-     * 
-     * // Goes through each line in the list, creating new PeerInfo object using
-     * values
-     * // from parts array and adds to peers list
-     * for (String line : lines) {
-     * String[] parts = line.split(" ");
-     * peers.add(new PeerInfo(Integer.parseInt(parts[0]), parts[1],
-     * Integer.parseInt(parts[2]),
-     * parts[3].equals("1")));
-     * }
-     * 
-     * return peers;
-     * 
-     * }
-     */
 }

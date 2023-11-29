@@ -9,24 +9,31 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import message.MessageGenerator;
+import message.MessageInterpretor;
 import message.MessageType;
 
 class CommunicationHandler implements Runnable {
     private ObjectOutputStream outputStream;
     private ObjectInputStream inputStream;
     private PeerInfo peer;
+    private int otherPeerID;
     private boolean hasSentMessage;
     private Socket socket;
     private MessageGenerator messageGenerator;
+    private MessageInterpretor messageInterpretor;
 
     public CommunicationHandler(ObjectInputStream inputStream, ObjectOutputStream outputStream, PeerInfo peer,
             Socket socket) {
         this.peer = peer;
+        this.otherPeerID = -1;
+
         this.inputStream = inputStream;
         this.outputStream = outputStream;
         this.hasSentMessage = false;
         this.socket = socket;
+
         this.messageGenerator = new MessageGenerator();
+        this.messageInterpretor = new MessageInterpretor();
     }
 
     @Override
@@ -94,6 +101,10 @@ class CommunicationHandler implements Runnable {
 
         if (msg.length == 32) {
             // dealing with handshake message - send a bitfield
+            System.out.println("Handshaked");
+            int neighborID = messageInterpretor.getIdFromHandshake(msg);
+            peer.createBitfieldMapEntry(neighborID);
+            otherPeerID = neighborID;
 
             // this peers bitfield
             if (!peer.hasNothing) {
@@ -112,6 +123,11 @@ class CommunicationHandler implements Runnable {
             switch (messageType) {
                 case BITFIELD:
                     System.out.println("Bitfield received");
+                    // store other peers bitfield
+                    peer.storeNeighborBitfield(msg);
+                    // determine if they have pieces current peer does not have
+                    // if yes -> send interested message
+                    // else -> not interested message
                     break;
                 case CHOKE:
                 case INTERESTED:
