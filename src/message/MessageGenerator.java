@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 public class MessageGenerator {
 
-    public byte[] handshakeMessage(int peerID) {
+    public byte[] createHandshakeMessage(int peerID) {
         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
         byte[] headerBytes = "P2PFILESHARINGPROJ".getBytes();
@@ -63,7 +63,7 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] sendChokeMessage() {
+    public byte[] createChokeMessage() {
         byte[] message = new byte[5];
         ByteBuffer buffer = ByteBuffer.wrap(message);
 
@@ -73,7 +73,7 @@ public class MessageGenerator {
         return message;
     }
 
-    public byte[] pieceMessage(int pieceIndex, byte[] pieceData) {
+    public byte[] createPieceMessage(int pieceIndex, byte[] pieceData) {
         int totalLength = 0;
         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
@@ -115,7 +115,7 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] requestMessage(int pieceIndex) {
+    public byte[] createRequestMessage(int pieceIndex) {
         int totalLength = 0;
         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
@@ -150,7 +150,7 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] unchokeMessage() {
+    public byte[] createUnchokeMessage() {
         byte[] message = new byte[5];
         ByteBuffer buffer = ByteBuffer.wrap(message);
 
@@ -162,7 +162,7 @@ public class MessageGenerator {
         return message;
     }
 
-    public byte[] interestedMessage() {
+    public byte[] createInterestedMessage() {
         int totalLength = 1;
         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
@@ -187,7 +187,7 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] uninterestedMessage() {
+    public byte[] createUninterestedMessage() {
         int totalLength = 1;
         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
@@ -213,7 +213,7 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] haveMessage() {
+    public byte[] createHaveMessage() {
         return null;
     }
 }

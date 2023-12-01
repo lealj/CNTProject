@@ -40,7 +40,7 @@ class CommunicationHandler implements Runnable {
         // +"..");
 
         // Send handshake before while loop
-        byte[] handshakeMessage = messageGenerator.handshakeMessage(peer.getPeerID());
+        byte[] handshakeMessage = messageGenerator.createHandshakeMessage(peer.getPeerID());
         sendMessage(handshakeMessage);
 
         while (true) {
@@ -179,13 +179,14 @@ class CommunicationHandler implements Runnable {
         byte[] filePiece = peer.transferPiece(pieceIndex);
 
         // send piece message
-        byte[] pieceMessage = messageGenerator.pieceMessage(pieceIndex, filePiece);
+        byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
 
         sendMessage(pieceMessage);
         pieceIndex++;
 
         try {
-            Thread.sleep(50); // Adjust the time as needed (in milliseconds)
+            // introduces delay
+            Thread.sleep(50);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -205,6 +206,9 @@ class CommunicationHandler implements Runnable {
         // printPieceInHex(pieceIndex, piece);
 
         peer.receivePiece(pieceIndex, piece);
+
+        // send have message
+        byte[] haveMessage = messageGenerator.createHaveMessage();
     }
 
     private void receivedBitfieldMessage(byte[] msg) {
@@ -217,11 +221,11 @@ class CommunicationHandler implements Runnable {
 
         // if yes -> send interested message
         if (neighborHasPieces) {
-            byte[] interestedMessage = messageGenerator.interestedMessage();
+            byte[] interestedMessage = messageGenerator.createInterestedMessage();
             sendMessage(interestedMessage);
         } else {
             // else -> not interested message
-            byte[] uninterestedMessage = messageGenerator.uninterestedMessage();
+            byte[] uninterestedMessage = messageGenerator.createUninterestedMessage();
             sendMessage(uninterestedMessage);
         }
     }
@@ -233,19 +237,17 @@ class CommunicationHandler implements Runnable {
         boolean neighborHasPieces = peer.neighborHasVitalPieces(otherPeerID);
         byte[] messageToSend;
         if (neighborHasPieces) {
-            messageToSend = messageGenerator.interestedMessage();
+            messageToSend = messageGenerator.createInterestedMessage();
             System.out.println("Peer: " + peer.getPeerID() + " interested in Peer: " + otherPeerID);
             sendMessage(messageToSend);
         } else {
-            messageToSend = messageGenerator.uninterestedMessage();
+            messageToSend = messageGenerator.createUninterestedMessage();
             System.out.println("Peer: " + peer.getPeerID() + " uinterested in Peer: " + otherPeerID);
             sendMessage(messageToSend);
         }
 
-        // get piece index field from message
+        // get piece index field from message - Update other bitfield
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
-
-        /* update the other peers bitfield based on ^ */
 
         // get current neighbor bitfield
         byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
@@ -292,13 +294,14 @@ class CommunicationHandler implements Runnable {
             // printPieceInHex(i, filePiece);
 
             // send piece message
-            byte[] pieceMessage = messageGenerator.pieceMessage(pieceIndex, filePiece);
+            byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
 
             sendMessage(pieceMessage);
             pieceIndex++;
 
             try {
-                Thread.sleep(50); // Adjust the time as needed (in milliseconds)
+                // introduces delay
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

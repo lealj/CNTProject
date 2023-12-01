@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,7 @@ public class PeerInfo {
         this.listeningPort = listeningPort;
         this.hasFile = hasFile;
         this.bitfield = null;
-        this.filePath = "peerFiles/" + Integer.toString(this.peerID);
+        this.filePath = "peer_" + Integer.toString(this.peerID);
         this.hasNothing = hasFile ? true : false;
 
         this.neighborBitfieldTracker = new HashMap<>();
@@ -64,7 +63,8 @@ public class PeerInfo {
         }
 
         // add /thefile to filepath instead of asdfFile in submission
-        try (FileOutputStream fileOutputStream = new FileOutputStream(this.filePath + "/asdfFile")) {
+        try (FileOutputStream fileOutputStream = new FileOutputStream(
+                this.filePath + "/" + commonConfig.getFileName())) {
             fileOutputStream.write(assembledFile);
         }
     }
