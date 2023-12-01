@@ -5,37 +5,34 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class MessageGenerator {
-    /*
-     * Deleted message classes may contain
-     */
 
     public byte[] handshakeMessage(int peerID) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
         byte[] headerBytes = "P2PFILESHARINGPROJ".getBytes();
         byte[] zeroBits = new byte[10];
         byte[] peerIDBytes = ByteBuffer.allocate(4).putInt(peerID).array();
 
         try {
-            outputStream.write(headerBytes);
-            outputStream.write(zeroBits);
-            outputStream.write(peerIDBytes);
+            byteOutputStream.write(headerBytes);
+            byteOutputStream.write(zeroBits);
+            byteOutputStream.write(peerIDBytes);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             try {
-                outputStream.close();
+                byteOutputStream.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        return outputStream.toByteArray();
+        return byteOutputStream.toByteArray();
     }
 
     public byte[] createBitfieldMessage(byte[] bitfield) {
         int totalLength = 0;
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
         byte[] lengthBytes;
 
@@ -50,96 +47,173 @@ public class MessageGenerator {
         lengthBytes = byteBufferLength.array();
 
         try {
-            outputStream.write(lengthBytes);
-            outputStream.write(messageTypeBytes);
-            outputStream.write(bitfield);
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageTypeBytes);
+            byteOutputStream.write(bitfield);
         } catch (Exception e) {
-            e.printStackTrace(); // Handle the exception properly based on your application logic
+            e.printStackTrace();
         } finally {
             try {
-                outputStream.close();
+                byteOutputStream.close();
             } catch (IOException e) {
-                e.printStackTrace(); // Handle the closing exception
+                e.printStackTrace();
             }
         }
 
-        return outputStream.toByteArray();
+        return byteOutputStream.toByteArray();
     }
 
     public byte[] sendChokeMessage() {
         byte[] message = new byte[5];
         ByteBuffer buffer = ByteBuffer.wrap(message);
 
-        buffer.putInt(1); // Message length (excluding itself)
-        buffer.put((byte) 0); // Message type: choke
+        buffer.putInt(1);
+        buffer.put((byte) 0);
 
         return message;
     }
 
-    public byte[] pieceMessage(int pieceIndex, byte[] payload) {
-        int payloadLength = payload.length;
-        byte[] message = new byte[payloadLength + 9];
-        ByteBuffer buffer = ByteBuffer.wrap(message);
+    public byte[] pieceMessage(int pieceIndex, byte[] pieceData) {
+        int totalLength = 0;
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
-        // Message length
-        buffer.putInt(payloadLength + 5);
-        // Message type:
-        buffer.put((byte) 7);
-        // Piece index
-        buffer.putInt(pieceIndex);
-        // Piece data payload
-        buffer.put(payload);
+        byte[] lengthBytes;
+        byte messageType = 7;
 
-        return message;
+        // message type
+        totalLength += 1;
+        // piece index field
+        totalLength += 4;
+        // payload
+        totalLength += pieceData.length;
+
+        ByteBuffer byteBufferLength = ByteBuffer.allocate(4);
+        byteBufferLength.putInt(totalLength);
+        lengthBytes = byteBufferLength.array();
+
+        try {
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageType);
+
+            // write piece index field
+            ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(4);
+            pieceIndexBuffer.putInt(pieceIndex);
+            byteOutputStream.write(pieceIndexBuffer.array());
+
+            // write piece data payload
+            byteOutputStream.write(pieceData);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                byteOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return byteOutputStream.toByteArray();
     }
 
     public byte[] requestMessage(int pieceIndex) {
-        byte[] message = new byte[9];
-        ByteBuffer buffer = ByteBuffer.wrap(message);
+        int totalLength = 0;
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
-        // Message length
-        buffer.putInt(5);
-        // Message type
-        buffer.put((byte) 6);
-        // insert piece index
-        buffer.putInt(pieceIndex);
+        byte[] lengthBytes;
+        byte messageType = 6;
 
-        return message;
+        totalLength += 1;
+        totalLength += 4;
+
+        ByteBuffer byteBufferLength = ByteBuffer.allocate(4);
+        byteBufferLength.putInt(totalLength);
+        lengthBytes = byteBufferLength.array();
+
+        try {
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageType);
+
+            // write piece index field
+            ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(4);
+            pieceIndexBuffer.putInt(pieceIndex);
+            byteOutputStream.write(pieceIndexBuffer.array());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                byteOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return byteOutputStream.toByteArray();
     }
 
     public byte[] unchokeMessage() {
         byte[] message = new byte[5];
         ByteBuffer buffer = ByteBuffer.wrap(message);
 
-        // Message length (excluding itself)
+        // message length (excluding itself)
         buffer.putInt(1);
-        // Message type: unchoke
+        // message type: unchoke
         buffer.put((byte) 1);
 
         return message;
     }
 
     public byte[] interestedMessage() {
-        byte[] message = new byte[5];
-        ByteBuffer buffer = ByteBuffer.wrap(message);
+        int totalLength = 1;
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
-        // Message length
-        buffer.putInt(1);
-        // Message type
-        buffer.put((byte) 3);
+        ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
+        lengthBuffer.putInt(totalLength);
+        byte[] lengthBytes = lengthBuffer.array();
 
-        return message;
+        byte[] messageTypeBytes = { 2 };
+        try {
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageTypeBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                byteOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return byteOutputStream.toByteArray();
     }
 
     public byte[] uninterestedMessage() {
-        byte[] message = new byte[5];
-        ByteBuffer buffer = ByteBuffer.wrap(message);
+        int totalLength = 1;
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 
-        // Message length
-        buffer.putInt(1);
-        // Message type
-        buffer.put((byte) 3);
+        ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
+        lengthBuffer.putInt(totalLength);
+        byte[] lengthBytes = lengthBuffer.array();
 
-        return message;
+        byte[] messageTypeBytes = { 3 };
+
+        try {
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageTypeBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                byteOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return byteOutputStream.toByteArray();
+    }
+
+    public byte[] haveMessage() {
+        return null;
     }
 }

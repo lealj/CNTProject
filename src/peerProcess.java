@@ -29,11 +29,13 @@ public class peerProcess {
 
         // Bitfield data
         int fileSize = commonConfig.getFileSize();
-        int numPieces = (int) Math.ceil((double) fileSize / commonConfig.getPieceSize());
+        int numbPieces = (int) Math.ceil((double) fileSize / commonConfig.getPieceSize());
 
         PeerInfo currentPeer = null;
         for (PeerInfo peer : peers) {
-            peer.initializeBitfield(numPieces);
+            peer.SetCommonConfig(commonConfig);
+            peer.initializeBitfield(numbPieces);
+            peer.loadFile(numbPieces);
             if (peer.getPeerID() == currentPeerID) {
                 currentPeer = peer;
             }

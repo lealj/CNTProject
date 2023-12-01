@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.net.*;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import message.MessageGenerator;
 import message.MessageInterpretor;
@@ -17,8 +15,8 @@ class CommunicationHandler implements Runnable {
     private ObjectInputStream inputStream;
     private PeerInfo peer;
     private int otherPeerID;
-    private boolean hasSentMessage;
-    private Socket socket;
+    // private boolean hasSentMessage;
+    // private Socket socket;
     private MessageGenerator messageGenerator;
     private MessageInterpretor messageInterpretor;
 
@@ -29,8 +27,8 @@ class CommunicationHandler implements Runnable {
 
         this.inputStream = inputStream;
         this.outputStream = outputStream;
-        this.hasSentMessage = false;
-        this.socket = socket;
+        // this.hasSentMessage = false;
+        // this.socket = socket;
 
         this.messageGenerator = new MessageGenerator();
         this.messageInterpretor = new MessageInterpretor();
@@ -55,6 +53,10 @@ class CommunicationHandler implements Runnable {
                     interpretMessage(msg);
                 }
 
+                Thread.sleep(50);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (EOFException e) {
                 System.err.println("Socket reached end of stream (EOF). " + "Peer: " + peer.getPeerID() + " Port: "
                         + peer.getListeningPortNumber());
@@ -84,18 +86,6 @@ class CommunicationHandler implements Runnable {
         }
     }
 
-    public String bytesToHex(byte[] bytes) {
-        StringBuilder hexString = new StringBuilder();
-        for (byte aByte : bytes) {
-            String hex = Integer.toHexString(0xff & aByte);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
-    }
-
     public void interpretMessage(byte[] msg) {
         // System.out.println("Peer " + peer.getPeerID() + " received message: " + msg);
 
@@ -106,12 +96,10 @@ class CommunicationHandler implements Runnable {
             peer.createBitfieldMapEntry(neighborID);
             otherPeerID = neighborID;
 
-            // this peers bitfield
-            if (!peer.hasNothing) {
-                byte[] bitfield = peer.getBitfield();
-                byte[] bitfieldMessage = messageGenerator.createBitfieldMessage(bitfield);
-                sendMessage(bitfieldMessage);
-            }
+            // if (!peer.hasNothing) { skip if peer has nothing - commented for testing
+            byte[] bitfield = peer.getBitfield();
+            byte[] bitfieldMessage = messageGenerator.createBitfieldMessage(bitfield);
+            sendMessage(bitfieldMessage);
 
             return;
         }
@@ -122,19 +110,36 @@ class CommunicationHandler implements Runnable {
         if (messageType != null) {
             switch (messageType) {
                 case BITFIELD:
-                    System.out.println("Bitfield received");
-                    // store other peers bitfield
-                    peer.storeNeighborBitfield(msg);
-                    // determine if they have pieces current peer does not have
-                    // if yes -> send interested message
-                    // else -> not interested message
+                    receivedBitfieldMessage(msg);
                     break;
                 case CHOKE:
                 case INTERESTED:
+                    System.out.println("Peer " + peer.getPeerID() + " received `Interest` from " + otherPeerID);
+                    // log interested - nothing else really specified ?
+                    break;
                 case PIECE:
+                    // send have message - confirming with other peer that this peer "have piece".
+                    receivedPieceMessage(msg);
+                    // - send another request message
+                    break;
                 case REQUEST:
+                    // send piece message (contains actual piece)
+                    receivedRequestMessage(msg);
+                    break;
                 case UNCHOKE:
+                    // send REQUEST message for piece it does not have and has not request from
+                    // other neighbors
+                    break;
                 case UNINTERESTED:
+                    // log uninterested - nothing else really specified ?
+                    System.out.println("Peer " + peer.getPeerID() + " received `Uninterest` from " + otherPeerID);
+
+                    /* For testing purposes, remove later: */
+                    receivedUninterestedMessage();
+                    break;
+                case HAVE:
+                    receivedHaveMessage(msg);
+                    break;
                 default:
                     System.out.println("Default message type case");
                     break;
@@ -143,6 +148,160 @@ class CommunicationHandler implements Runnable {
             System.out.println("Message type null");
             return;
         }
+        /*
+         * Whenever a peer receives
+         * a piece completely, it checks the bitfields of its neighbors and decides
+         * whether it should
+         * send ‘not interested’ messages to some neighbors.
+         */
+    }
 
+    // Should not be in final submission - just use switch case for handling
+    private void receivedUninterestedMessage() {
+        /* TEST FUNCTION - NOT ACTUAL IMPLEMENTATION */
+
+        /*
+         * // USED FOR SENDING ENTIRE FILE (TESTING)
+         * System.out.println("Testing: sending request msg");
+         * int pieceIndex = 0;
+         * byte[] requestMessage = messageGenerator.requestMessage(pieceIndex);
+         * sendMessage(requestMessage);
+         */
+    }
+
+    private void receivedRequestMessage(byte[] msg) {
+        System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
+
+        // get index from msg
+        int pieceIndex = messageInterpretor.getPieceIndex(msg);
+
+        // get piece data
+        byte[] filePiece = peer.transferPiece(pieceIndex);
+
+        // send piece message
+        byte[] pieceMessage = messageGenerator.pieceMessage(pieceIndex, filePiece);
+
+        sendMessage(pieceMessage);
+        pieceIndex++;
+
+        try {
+            Thread.sleep(50); // Adjust the time as needed (in milliseconds)
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+    }
+
+    private void receivedPieceMessage(byte[] msg) {
+        // download the piece
+        System.out.println("Peer " + peer.getPeerID() + " received `Piece` from " + otherPeerID);
+        int pieceSize = peer.getPieceSize();
+        if (peer.getNumbPieces() == 133) {
+            pieceSize = peer.getLastPieceSize();
+        }
+
+        int pieceIndex = messageInterpretor.getPieceIndex(msg);
+        byte[] piece = messageInterpretor.getPieceContent(pieceSize, msg);
+        // printPieceInHex(pieceIndex, piece);
+
+        peer.receivePiece(pieceIndex, piece);
+    }
+
+    private void receivedBitfieldMessage(byte[] msg) {
+        System.out.println("Peer " + peer.getPeerID() + " received `Bitfield` from " + otherPeerID);
+        // store other bitfield
+        byte[] neighborBitfield = messageInterpretor.getBitfieldFromMessage(msg);
+        peer.storeNeighborBitfield(otherPeerID, neighborBitfield);
+        // determine if neighbor has piece this peer doesn't have
+        boolean neighborHasPieces = peer.neighborHasVitalPieces(otherPeerID);
+
+        // if yes -> send interested message
+        if (neighborHasPieces) {
+            byte[] interestedMessage = messageGenerator.interestedMessage();
+            sendMessage(interestedMessage);
+        } else {
+            // else -> not interested message
+            byte[] uninterestedMessage = messageGenerator.uninterestedMessage();
+            sendMessage(uninterestedMessage);
+        }
+    }
+
+    // TEST THAT BITFIELDS ARE PROPERLY UPDATED
+    private void receivedHaveMessage(byte[] msg) {
+        System.out.println("Peer " + peer.getPeerID() + " received `Have` from " + otherPeerID);
+        // determine type of interest message (compare bitfields)
+        boolean neighborHasPieces = peer.neighborHasVitalPieces(otherPeerID);
+        byte[] messageToSend;
+        if (neighborHasPieces) {
+            messageToSend = messageGenerator.interestedMessage();
+            System.out.println("Peer: " + peer.getPeerID() + " interested in Peer: " + otherPeerID);
+            sendMessage(messageToSend);
+        } else {
+            messageToSend = messageGenerator.uninterestedMessage();
+            System.out.println("Peer: " + peer.getPeerID() + " uinterested in Peer: " + otherPeerID);
+            sendMessage(messageToSend);
+        }
+
+        // get piece index field from message
+        int pieceIndex = messageInterpretor.getPieceIndex(msg);
+
+        /* update the other peers bitfield based on ^ */
+
+        // get current neighbor bitfield
+        byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
+        // update it using the piece index
+        if (neighborBitfield != null) {
+            int byteIndex = pieceIndex / 8;
+            int bitIndex = 7 - (pieceIndex % 8);
+            neighborBitfield[byteIndex] |= (1 << bitIndex);
+            peer.storeNeighborBitfield(otherPeerID, neighborBitfield);
+        }
+    }
+
+    public void printPieceInHex(int i, byte[] piece) {
+        // manipulate count to print specific values of piece
+        System.out.print("Piece " + i + ": ");
+        int count = 0;
+        if (piece != null) {
+
+            for (byte b : piece) {
+                if (count < 5) {
+                    System.out.print(String.format("%02X ", b));
+                }
+                count++;
+            }
+
+        } else {
+            System.out.print("null");
+        }
+
+        System.out.println();
+    }
+
+    // copy of request message for sending entire file - remove from submission
+    private void receivedRequestMessageSIMULATION(byte[] msg) {
+        System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
+
+        // get index from msg
+        int pieceIndex = messageInterpretor.getPieceIndex(msg);
+        for (int i = 0; i < 133; i++) {
+            // System.out.println(pieceIndex);
+            // get piece data
+            byte[] filePiece = peer.transferPiece(pieceIndex);
+            // System.out.println("File Piece Length: " + filePiece.length);
+            // printPieceInHex(i, filePiece);
+
+            // send piece message
+            byte[] pieceMessage = messageGenerator.pieceMessage(pieceIndex, filePiece);
+
+            sendMessage(pieceMessage);
+            pieceIndex++;
+
+            try {
+                Thread.sleep(50); // Adjust the time as needed (in milliseconds)
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }
