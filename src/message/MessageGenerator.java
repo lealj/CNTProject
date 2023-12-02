@@ -213,7 +213,34 @@ public class MessageGenerator {
         return byteOutputStream.toByteArray();
     }
 
-    public byte[] createHaveMessage() {
-        return null;
+    public byte[] createHaveMessage(int pieceIndex) {
+        int totalLength = 5;
+        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+
+        ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
+        lengthBuffer.putInt(totalLength);
+        byte[] lengthBytes = lengthBuffer.array();
+
+        byte[] messageTypeBytes = { 4 };
+
+        ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(4);
+        pieceIndexBuffer.putInt(pieceIndex);
+        byte[] pieceIndexBytes = pieceIndexBuffer.array();
+
+        try {
+            byteOutputStream.write(lengthBytes);
+            byteOutputStream.write(messageTypeBytes);
+            byteOutputStream.write(pieceIndexBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                byteOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return byteOutputStream.toByteArray();
     }
 }

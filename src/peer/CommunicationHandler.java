@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.net.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 import message.MessageGenerator;
 import message.MessageInterpretor;
@@ -15,8 +18,7 @@ class CommunicationHandler implements Runnable {
     private ObjectInputStream inputStream;
     private PeerInfo peer;
     private int otherPeerID;
-    // private boolean hasSentMessage;
-    // private Socket socket;
+
     private MessageGenerator messageGenerator;
     private MessageInterpretor messageInterpretor;
 
@@ -27,8 +29,6 @@ class CommunicationHandler implements Runnable {
 
         this.inputStream = inputStream;
         this.outputStream = outputStream;
-        // this.hasSentMessage = false;
-        // this.socket = socket;
 
         this.messageGenerator = new MessageGenerator();
         this.messageInterpretor = new MessageInterpretor();
@@ -47,6 +47,9 @@ class CommunicationHandler implements Runnable {
             // exit while loop if this.peer has the file and all other neighbors do as well.
             try {
                 Object receivedMessage = inputStream.readObject();
+
+                // Send queued interest/uninterest messages if exist
+                sendQueuedInterestMessages();
 
                 if (receivedMessage instanceof byte[]) {
                     byte[] msg = (byte[]) receivedMessage;
@@ -91,16 +94,18 @@ class CommunicationHandler implements Runnable {
 
         if (msg.length == 32) {
             // dealing with handshake message - send a bitfield
-            System.out.println("Handshaked");
+
             int neighborID = messageInterpretor.getIdFromHandshake(msg);
             peer.createBitfieldMapEntry(neighborID);
             otherPeerID = neighborID;
+            System.out.println("Handshaked with Peer " + otherPeerID);
 
-            // if (!peer.hasNothing) { skip if peer has nothing - commented for testing
+            // skip if peer has nothing - comment out if statemnt to help w/ testing
+            // if (!peer.hasNothing) {
             byte[] bitfield = peer.getBitfield();
             byte[] bitfieldMessage = messageGenerator.createBitfieldMessage(bitfield);
             sendMessage(bitfieldMessage);
-
+            // }
             return;
         }
 
@@ -125,6 +130,7 @@ class CommunicationHandler implements Runnable {
                 case REQUEST:
                     // send piece message (contains actual piece)
                     receivedRequestMessage(msg);
+                    // receivedRequestMessageSIMULATION(msg);
                     break;
                 case UNCHOKE:
                     // send REQUEST message for piece it does not have and has not request from
@@ -148,25 +154,20 @@ class CommunicationHandler implements Runnable {
             System.out.println("Message type null");
             return;
         }
-        /*
-         * Whenever a peer receives
-         * a piece completely, it checks the bitfields of its neighbors and decides
-         * whether it should
-         * send ‘not interested’ messages to some neighbors.
-         */
     }
 
     // Should not be in final submission - just use switch case for handling
     private void receivedUninterestedMessage() {
         /* TEST FUNCTION - NOT ACTUAL IMPLEMENTATION */
 
-        /*
-         * // USED FOR SENDING ENTIRE FILE (TESTING)
-         * System.out.println("Testing: sending request msg");
-         * int pieceIndex = 0;
-         * byte[] requestMessage = messageGenerator.requestMessage(pieceIndex);
-         * sendMessage(requestMessage);
-         */
+        if (peer.piecesReceived >= 1) {
+            return;
+        }
+        // USED FOR SENDING ENTIRE FILE (TESTING)
+        // System.out.println("Testing: sending request msg");
+        // int pieceIndex = 0;
+        // byte[] requestMessage = messageGenerator.createRequestMessage(pieceIndex);
+        // sendMessage(requestMessage);
     }
 
     private void receivedRequestMessage(byte[] msg) {
@@ -182,8 +183,8 @@ class CommunicationHandler implements Runnable {
         byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
 
         sendMessage(pieceMessage);
-        pieceIndex++;
 
+        // probably remove in submission
         try {
             // introduces delay
             Thread.sleep(50);
@@ -192,6 +193,16 @@ class CommunicationHandler implements Runnable {
         }
 
     }
+
+    /*
+     * Even though peer A sends a ‘request’ message to peer B, it may not receive a
+     * ‘piece’
+     * message corresponding to it. This situation happens when peer B re-determines
+     * preferred neighbors or optimistically unchoked a neighbor and peer A is
+     * choked as the
+     * result before peer B responds to peer A. Your program should consider this
+     * case.
+     */
 
     private void receivedPieceMessage(byte[] msg) {
         // download the piece
@@ -205,10 +216,31 @@ class CommunicationHandler implements Runnable {
         byte[] piece = messageInterpretor.getPieceContent(pieceSize, msg);
         // printPieceInHex(pieceIndex, piece);
 
+        // ensure we don't already have the piece
         peer.receivePiece(pieceIndex, piece);
 
         // send have message
-        byte[] haveMessage = messageGenerator.createHaveMessage();
+        byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
+        sendMessage(haveMessage);
+
+        // check neighbor bitfields, populate interestMessageQueue w/ interest msgs
+        populateInterestMessageQueue();
+
+        // send another request message until peer has no more interesting pieces or
+        // receive choke message
+        byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
+        List<Integer> pieceDifference = peer.getPiecesDifference(neighborBitfield);
+        System.out.println(pieceDifference.size());
+        if (pieceDifference.size() > 0) {
+            // randomly select pieceIndex
+            Random random = new Random();
+            int randomIndex = random.nextInt(pieceDifference.size());
+            int randomPieceIndex = pieceDifference.get(randomIndex);
+
+            byte[] requestMessage = messageGenerator.createRequestMessage(randomPieceIndex);
+            sendMessage(requestMessage);
+        }
+
     }
 
     private void receivedBitfieldMessage(byte[] msg) {
@@ -230,7 +262,6 @@ class CommunicationHandler implements Runnable {
         }
     }
 
-    // TEST THAT BITFIELDS ARE PROPERLY UPDATED
     private void receivedHaveMessage(byte[] msg) {
         System.out.println("Peer " + peer.getPeerID() + " received `Have` from " + otherPeerID);
         // determine type of interest message (compare bitfields)
@@ -259,6 +290,50 @@ class CommunicationHandler implements Runnable {
             peer.storeNeighborBitfield(otherPeerID, neighborBitfield);
         }
     }
+
+    /* QUEUEING FUNCTIONS */
+
+    private void sendQueuedInterestMessages() {
+        Map<Integer, byte[]> interestMessageQueue = peer.getInterestMessageQueue();
+        if (!interestMessageQueue.isEmpty()) {
+            for (Integer key : interestMessageQueue.keySet()) {
+                byte[] interestMessage = interestMessageQueue.get(key);
+                if (interestMessage != null) {
+                    System.out.println("Peer " + peer.getPeerID() + " sent queued msg to Peer " + otherPeerID);
+                    sendMessage(interestMessage);
+                    interestMessageQueue.put(key, null);
+                }
+            }
+        }
+    }
+
+    private void populateInterestMessageQueue() {
+        Map<Integer, byte[]> neighborBitfieldTracker = peer.getNeighborBitfieldTracker();
+        Map<Integer, byte[]> interestMessageQueue = peer.getInterestMessageQueue();
+
+        for (Integer key : neighborBitfieldTracker.keySet()) {
+            if (key == otherPeerID) {
+                continue;
+            }
+            if (peer.neighborHasVitalPieces(key) && interestMessageQueue.get(key) == null) {
+                // queue interest message
+                byte[] interestMessage = messageGenerator.createInterestedMessage();
+                interestMessageQueue.put(key, interestMessage);
+
+                System.out.println("Peer " + peer.getPeerID() + " queued interest msg for peer" + key);
+
+            } else if (!peer.neighborHasVitalPieces(key)) {
+                // queue uninterest message
+                byte[] uninterestMessage = messageGenerator.createInterestedMessage();
+                interestMessageQueue.put(key, uninterestMessage);
+
+                System.out.println("Peer " + peer.getPeerID() + " queued uninterest msg for peer" + key);
+
+            }
+        }
+    }
+
+    /* TESTING FUNCTIONS */
 
     public void printPieceInHex(int i, byte[] piece) {
         // manipulate count to print specific values of piece

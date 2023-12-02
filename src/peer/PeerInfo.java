@@ -23,12 +23,14 @@ public class PeerInfo {
     private CommonConfig commonConfig;
     private byte[][] filePieces;
     private int lastPieceSize;
+    private int numbPieces;
 
     // trackers
     private Map<Integer, byte[]> neighborBitfieldTracker;
+    private Map<Integer, byte[]> interestMessageQueue; // id, interest/uninterest msg
 
     // test
-    private int piecesReceived;
+    public int piecesReceived;
 
     // Constructor that initializes values provided in parameter
     public PeerInfo(int peerID, String hostName, int listeningPort, boolean hasFile) {
@@ -38,9 +40,16 @@ public class PeerInfo {
         this.hasFile = hasFile;
         this.bitfield = null;
         this.filePath = "peer_" + Integer.toString(this.peerID);
-        this.hasNothing = hasFile ? true : false;
+        this.numbPieces = -1;
+
+        if (this.hasFile) {
+            this.hasNothing = false;
+        } else {
+            this.hasNothing = true;
+        }
 
         this.neighborBitfieldTracker = new HashMap<>();
+        this.interestMessageQueue = new HashMap<>();
         // this.outputStream = null;
 
         // test
@@ -70,6 +79,7 @@ public class PeerInfo {
     }
 
     public void loadFile(int numbPieces) {
+        this.numbPieces = numbPieces;
         filePieces = new byte[numbPieces][];
 
         if (!hasFile) {
@@ -107,11 +117,23 @@ public class PeerInfo {
 
     public void receivePiece(int pieceIndex, byte[] piece) {
         if (pieceIndex >= 0 && pieceIndex < filePieces.length && piece != null) {
+            hasNothing = false;
             filePieces[pieceIndex] = piece;
             updateBitfield(pieceIndex);
             piecesReceived++;
         }
-        if (pieceIndex == 132) {
+
+        // check if we have all pieces
+        int count = 0;
+        for (byte b : this.bitfield) {
+            for (int i = 0; i < 8; i++) {
+                if ((b & (1 << i)) != 0) {
+                    count++;
+                }
+            }
+        }
+
+        if (count == numbPieces) {
             try {
                 assembleFile();
             } catch (IOException e) {
@@ -174,28 +196,55 @@ public class PeerInfo {
         return missingPieces;
     }
 
+    /*
+     * FIX REQUIRED - DUE TO FILE SIZE, BITFIELD GENERATED HAS ZEROS IF
+     * EVEN IF ENTIRE FILE IS TRANSFERED, YET "HAS FILE" BITFIELD IS ALL 1's
+     */
     public void initializeBitfield(int numbPieces) {
         int bitfieldSize = (int) Math.ceil((double) numbPieces / 8);
         this.bitfield = new byte[bitfieldSize];
-        for (int i = 0; i < bitfieldSize; i++) {
+
+        for (int i = 0; i < bitfieldSize - 1; i++) {
             if (this.hasFile) {
                 this.bitfield[i] = (byte) 0xFF;
             } else {
                 this.bitfield[i] = (byte) 0x00;
             }
         }
+
+        // set bits in last byte of bitfield individually
+        int lastByteBits = numbPieces % 8;
+        byte lastByteMask = (byte) ((1 << lastByteBits) - 1);
+        lastByteMask <<= (8 - lastByteBits);
+
+        if (this.hasFile) {
+            this.bitfield[bitfieldSize - 1] = lastByteMask;
+        } else {
+            this.bitfield[bitfieldSize - 1] = 0x00;
+        }
+
+        // printBitfield(this.bitfield);
     }
 
     private void updateBitfield(int pieceIndex) {
         int byteIndex = pieceIndex / 8;
         int bitIndex = pieceIndex % 8;
         this.bitfield[byteIndex] |= (1 << (7 - bitIndex));
+        // System.out.println("Pieces Received: " + this.piecesReceived);
         if (this.piecesReceived == 132) {
             printBitfield(bitfield);
         }
     }
 
     /* GETTERS */
+
+    public Map<Integer, byte[]> getNeighborBitfieldTracker() {
+        return neighborBitfieldTracker;
+    }
+
+    public Map<Integer, byte[]> getInterestMessageQueue() {
+        return interestMessageQueue;
+    }
 
     public byte[] getBitfield() {
         return bitfield;
@@ -231,7 +280,7 @@ public class PeerInfo {
         return lastPieceSize;
     }
 
-    // testing
+    // testing functions
     public void printBitfield(byte[] bitfield) {
         System.out.print("Bitfield: ");
         for (byte b : bitfield) {
