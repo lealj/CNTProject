@@ -120,7 +120,7 @@ public class PeerInfo {
             hasNothing = false;
             filePieces[pieceIndex] = piece;
             updateBitfield(pieceIndex);
-            piecesReceived++;
+            this.piecesReceived++;
         }
 
         // check if we have all pieces
@@ -136,6 +136,7 @@ public class PeerInfo {
         if (count == numbPieces) {
             try {
                 assembleFile();
+                this.hasFile = true;
             } catch (IOException e) {
                 e.printStackTrace();
             }

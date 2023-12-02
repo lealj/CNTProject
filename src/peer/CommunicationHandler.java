@@ -129,8 +129,8 @@ class CommunicationHandler implements Runnable {
                     break;
                 case REQUEST:
                     // send piece message (contains actual piece)
-                    receivedRequestMessage(msg);
-                    // receivedRequestMessageSIMULATION(msg);
+                    // receivedRequestMessage(msg);
+                    receivedRequestMessageSIMULATION(msg);
                     break;
                 case UNCHOKE:
                     // send REQUEST message for piece it does not have and has not request from
@@ -163,11 +163,12 @@ class CommunicationHandler implements Runnable {
         if (peer.piecesReceived >= 1) {
             return;
         }
+
         // USED FOR SENDING ENTIRE FILE (TESTING)
-        // System.out.println("Testing: sending request msg");
-        // int pieceIndex = 0;
-        // byte[] requestMessage = messageGenerator.createRequestMessage(pieceIndex);
-        // sendMessage(requestMessage);
+        System.out.println("Testing: sending request msg");
+        int pieceIndex = 0;
+        byte[] requestMessage = messageGenerator.createRequestMessage(pieceIndex);
+        sendMessage(requestMessage);
     }
 
     private void receivedRequestMessage(byte[] msg) {
@@ -196,14 +197,15 @@ class CommunicationHandler implements Runnable {
 
     /*
      * Even though peer A sends a ‘request’ message to peer B, it may not receive a
-     * ‘piece’
-     * message corresponding to it. This situation happens when peer B re-determines
-     * preferred neighbors or optimistically unchoked a neighbor and peer A is
-     * choked as the
-     * result before peer B responds to peer A. Your program should consider this
-     * case.
+     * ‘piece’ message corresponding to it.
+     * This situation happens when peer B re-determines preferred neighbors or
+     * optimistically
+     * unchoked a neighbor and peer A is choked as the result before peer B responds
+     * to peer A.
+     * Your program should consider this case.
      */
 
+    // Needs updating once choking/unchoking/preferred neighbors implemented
     private void receivedPieceMessage(byte[] msg) {
         // download the piece
         System.out.println("Peer " + peer.getPeerID() + " received `Piece` from " + otherPeerID);
@@ -221,6 +223,7 @@ class CommunicationHandler implements Runnable {
 
         // send have message
         byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
+        // comment this to remove uninterest spam from test simulation func
         sendMessage(haveMessage);
 
         // check neighbor bitfields, populate interestMessageQueue w/ interest msgs
@@ -230,7 +233,7 @@ class CommunicationHandler implements Runnable {
         // receive choke message
         byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
         List<Integer> pieceDifference = peer.getPiecesDifference(neighborBitfield);
-        System.out.println(pieceDifference.size());
+        System.out.println("Piece difference Size: " + pieceDifference.size());
         if (pieceDifference.size() > 0) {
             // randomly select pieceIndex
             Random random = new Random();
@@ -370,7 +373,7 @@ class CommunicationHandler implements Runnable {
 
             // send piece message
             byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
-
+            System.out.println(i);
             sendMessage(pieceMessage);
             pieceIndex++;
 
