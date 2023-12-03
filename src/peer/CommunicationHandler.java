@@ -255,10 +255,21 @@ class CommunicationHandler implements Runnable {
     }
 
     private void receivedRequestMessage(byte[] msg) {
-        System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
-
+        //System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
         // get index from msg
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
+        
+        try {
+            Date date = new Date();
+
+            FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
+            log.write(
+                "[" + date + "]: " + "Peer " + peer.getPeerID() + " received the 'have' message from " + otherPeerID + " for the piece " + pieceIndex + ".\n");
+            log.close();
+        }
+        catch(Exception error) {
+            error.printStackTrace();
+        }
 
         // get piece data
         byte[] filePiece = peer.transferPiece(pieceIndex);
@@ -303,21 +314,21 @@ class CommunicationHandler implements Runnable {
         // ensure we don't already have the piece
         peer.receivePiece(pieceIndex, piece);
 
-        // send have message
-        byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
-        sendMessage(haveMessage);
-
         try {
             Date date = new Date();
 
             FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
             log.write(
-                "[" + date + "]: " + "Peer " + peer.getPeerID() + " received the 'have' message from " + otherPeerID + " for the piece " + pieceIndex + ".\n");
+                "[" + date + "]: " + "Peer " + peer.getPeerID() + " has downloaded the piece " + pieceIndex + " from " + otherPeerID + ". Now the number of pieces it has is " + peer.piecesReceived + ".\n");
             log.close();
         }
         catch(Exception error) {
             error.printStackTrace();
         }
+
+        // send have message
+        byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
+        sendMessage(haveMessage);
 
         // check neighbor bitfields, populate interestMessageQueue w/ interest msgs
         populateInterestMessageQueue();
@@ -713,10 +724,22 @@ class CommunicationHandler implements Runnable {
 
     // copy of request message for sending entire file - remove from submission
     private void receivedRequestMessageSIMULATION(byte[] msg) {
-        System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
-
+        //System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
         // get index from msg
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
+
+        try {
+            Date date = new Date();
+
+            FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
+            log.write(
+                "[" + date + "]: " + "Peer " + peer.getPeerID() + " received the 'have' message from " + otherPeerID + " for the piece " + pieceIndex + ".\n");
+            log.close();
+        }
+        catch(Exception error) {
+            error.printStackTrace();
+        }
+
         for (int i = 0; i < 133; i++) {
             // System.out.println(pieceIndex);
             // get piece data
