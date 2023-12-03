@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +29,8 @@ public class PeerInfo {
     // trackers
     private Map<Integer, byte[]> neighborBitfieldTracker;
     private Map<Integer, byte[]> interestMessageQueue; // id, interest/uninterest msg
-
+    private Map<Integer, ObjectOutputStream> neighborOutputStreams;
+    private ArrayList<Integer> handshakedNeighborIds;
     // test
     public int piecesReceived;
 
@@ -50,15 +52,38 @@ public class PeerInfo {
 
         this.neighborBitfieldTracker = new HashMap<>();
         this.interestMessageQueue = new HashMap<>();
+        this.neighborOutputStreams = new HashMap<>();
+        this.handshakedNeighborIds = new ArrayList<>();
         // this.outputStream = null;
 
         // test
         this.piecesReceived = 0;
     }
 
+    public void sendMessage(int neighborID, byte[] msg) {
+        ObjectOutputStream outputStream = neighborOutputStreams.get(neighborID);
+        try {
+            if (outputStream == null) {
+                System.out.println("output stream null");
+                return;
+            }
+            // System.out.println("Peer " + peer.getPeerID() + " attempts to send message");
+            outputStream.flush(); // comment out
+            outputStream.writeObject(msg);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void SetCommonConfig(CommonConfig commonConfig) {
         this.commonConfig = commonConfig;
         this.lastPieceSize = commonConfig.getFileSize() % commonConfig.getPieceSize();
+    }
+
+    public void addNeighborOutputStream(int neighborID, ObjectOutputStream outputStream) {
+        System.out.println("Peer " + peerID + " sets outputStream for Peer " + neighborID);
+        neighborOutputStreams.put(neighborID, outputStream);
     }
 
     public void assembleFile() throws FileNotFoundException, IOException {
@@ -197,10 +222,6 @@ public class PeerInfo {
         return missingPieces;
     }
 
-    /*
-     * FIX REQUIRED - DUE TO FILE SIZE, BITFIELD GENERATED HAS ZEROS IF
-     * EVEN IF ENTIRE FILE IS TRANSFERED, YET "HAS FILE" BITFIELD IS ALL 1's
-     */
     public void initializeBitfield(int numbPieces) {
         int bitfieldSize = (int) Math.ceil((double) numbPieces / 8);
         this.bitfield = new byte[bitfieldSize];
@@ -238,6 +259,15 @@ public class PeerInfo {
     }
 
     /* GETTERS */
+    public void addPeerHandshakeEntry(int neighborID) {
+        if (!handshakedNeighborIds.contains(neighborID)) {
+            handshakedNeighborIds.add(neighborID);
+        }
+    }
+
+    public ArrayList<Integer> getHandshakedPeers() {
+        return handshakedNeighborIds;
+    }
 
     public Map<Integer, byte[]> getNeighborBitfieldTracker() {
         return neighborBitfieldTracker;
