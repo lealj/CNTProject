@@ -485,7 +485,6 @@ class CommunicationHandler implements Runnable {
 
         if (peer.getPeerID() == 1001) {
 
-<<<<<<< HEAD
         int optimisticUnchokedNeighbor = selectRandomChokedNeighbor();
         
         /*TODO: FIX FUNCTION
@@ -509,17 +508,6 @@ class CommunicationHandler implements Runnable {
         Set<Integer> optimisticUnchokedSet = new HashSet<>();
         optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
         updateUnchokedNeighbors(optimisticUnchokedSet);
-=======
-            int optimisticUnchokedNeighbor = selectRandomChokedNeighbor();
-
-            // Send unchoke message to the optimistically unchoked neighbor
-            sendUnchokeMessage(optimisticUnchokedNeighbor);
-
-            // Update the set of unchoked neighbors
-            Set<Integer> optimisticUnchokedSet = new HashSet<>();
-            optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
-            updateUnchokedNeighbors(optimisticUnchokedSet);
->>>>>>> c19eb5dfb91bc061007b75b0629af5bd434b1d0f
 
         }
     }
@@ -552,7 +540,6 @@ class CommunicationHandler implements Runnable {
         Set<Integer> preferredNeighbors = new HashSet<>(
                 sortedNeighbors.subList(0, Math.min(k, sortedNeighbors.size())));
 
-<<<<<<< HEAD
         //System.out.println("Preferred Neighbors: " + preferredNeighbors);
         //TODO: Function applies to non-established peers, creates logs preemptively 
         /*
@@ -577,9 +564,6 @@ class CommunicationHandler implements Runnable {
             error.printStackTrace();
         }
         */
-=======
-        // System.out.println("Preferred Neighbors: " + preferredNeighbors);
->>>>>>> c19eb5dfb91bc061007b75b0629af5bd434b1d0f
 
         return preferredNeighbors;
     }
@@ -604,7 +588,6 @@ class CommunicationHandler implements Runnable {
             sendMessageToNeighbor(neighbor, unchokeMessage);
 
             // Print a message indicating the unchoke
-<<<<<<< HEAD
             //System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);
             /*TODO: FIX FUNCTION
             try {
@@ -622,11 +605,6 @@ class CommunicationHandler implements Runnable {
         }
     }
     
-=======
-            System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);
-        }
-    }
->>>>>>> c19eb5dfb91bc061007b75b0629af5bd434b1d0f
 
     private void sendChokeMessages(Set<Integer> preferredNeighbors) {
 
@@ -643,7 +621,6 @@ class CommunicationHandler implements Runnable {
                 byte[] chokeMessage = messageGenerator.createChokeMessage();
                 sendMessageToNeighbor(neighbor, chokeMessage);
 
-<<<<<<< HEAD
             // Print a message indicating the choke
             //System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
             /*TODO: FIX FUNCTION
@@ -659,11 +636,7 @@ class CommunicationHandler implements Runnable {
                 error.printStackTrace();
             }
             */
-=======
-                // Print a message indicating the choke
-                System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
             }
->>>>>>> c19eb5dfb91bc061007b75b0629af5bd434b1d0f
         }
     }
 
