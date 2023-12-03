@@ -27,11 +27,11 @@ class CommunicationHandler implements Runnable {
     private MessageGenerator messageGenerator;
     private MessageInterpretor messageInterpretor;
 
-    // Choking interval in milliseconds 
-    private static final int P_INTERVAL = 25; 
+    // Choking interval in milliseconds
+    private static final int P_INTERVAL = 25;
 
     // Optimistic unchoking interval in milliseconds (60 seconds)
-    private static final int M_INTERVAL = 25; 
+    private static final int M_INTERVAL = 25;
 
     long lastChokingTime = System.currentTimeMillis();
     long lastOptimisticUnchokingTime = System.currentTimeMillis();
@@ -39,7 +39,6 @@ class CommunicationHandler implements Runnable {
     private Set<Integer> chokedNeighbors = new HashSet<>();
     private Set<Integer> unchokedNeighbors = new HashSet<>();
     private int k = 3; // Number of preferred neighbors
-
 
     public CommunicationHandler(ObjectInputStream inputStream, ObjectOutputStream outputStream, PeerInfo peer,
             Socket socket) {
@@ -80,29 +79,27 @@ class CommunicationHandler implements Runnable {
                 long currentTime = System.currentTimeMillis();
 
                 if (peer.getPeerID() == 1001) {
-                if (currentTime - lastChokingTime >= P_INTERVAL) {
-                    System.out.println("Executing choking logic. Current time: " + currentTime);
-                    implementChokingLogic();
-                    lastChokingTime = currentTime;
-                 }
+                    if (currentTime - lastChokingTime >= P_INTERVAL) {
+                        System.out.println("Executing choking logic. Current time: " + currentTime);
+                        implementChokingLogic();
+                        lastChokingTime = currentTime;
+                    }
                 }
-                   
 
                 // Implement optimistic unchoking logic every m seconds
                 if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
                     implementOptimisticUnchokingLogic();
                     lastOptimisticUnchokingTime = currentTime;
-                } 
-                   
+                }
 
-                Thread.sleep(50);
+                // Thread.sleep(50);
 
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                // } catch (InterruptedException e) {
+                // Thread.currentThread().interrupt();
             } catch (EOFException e) {
                 System.err.println("Socket reached end of stream (EOF). " + "Peer: " + peer.getPeerID() + " Port: "
                         + peer.getListeningPortNumber());
-                        break;
+                break;
             } catch (SocketException e) {
                 System.err.println("Socket closed. Continuing... " + peer.getPeerID());
 
@@ -158,7 +155,7 @@ class CommunicationHandler implements Runnable {
                     receivedBitfieldMessage(msg);
                     break;
                 case CHOKE:
-                    //implementChokingLogic();
+                    // implementChokingLogic();
                     break;
                 case INTERESTED:
                     System.out.println("Peer " + peer.getPeerID() + " received `Interest` from " + otherPeerID);
@@ -177,13 +174,13 @@ class CommunicationHandler implements Runnable {
                 case UNCHOKE:
                     // send REQUEST message for piece it does not have and has not request from
                     // other neighbors
-                    //implementChokingLogic();
+                    // implementChokingLogic();
                     break;
                 case UNINTERESTED:
                     // log uninterested - nothing else really specified ?
                     System.out.println("Peer " + peer.getPeerID() + " received `Uninterest` from " + otherPeerID);
                     /* For testing purposes, remove later: */
-                    receivedUninterestedMessage();
+                    // receivedUninterestedMessage();
                     break;
                 case HAVE:
                     receivedHaveMessage(msg);
@@ -228,12 +225,12 @@ class CommunicationHandler implements Runnable {
         sendMessage(pieceMessage);
 
         // probably remove in submission
-        try {
-            // introduces delay
-            Thread.sleep(50);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // try {
+        // introduces delay
+        // Thread.sleep(50);
+        // } catch (InterruptedException e) {
+        // Thread.currentThread().interrupt();
+        // }
 
     }
 
@@ -398,34 +395,33 @@ class CommunicationHandler implements Runnable {
         System.out.println();
     }
 
-
     private void implementChokingLogic() {
 
-        //long currentTime = System.currentTimeMillis();
-        //System.out.println("Current time: " + currentTime);
-        //System.out.println("Last choking time: " + lastChokingTime);
+        // long currentTime = System.currentTimeMillis();
+        // System.out.println("Current time: " + currentTime);
+        // System.out.println("Last choking time: " + lastChokingTime);
 
         if (peer.getPeerID() == 1001) {
 
-        // Calculate downloading rates and select preferred neighbors
-        Set<Integer> downloadingRates = calculateDownloadingRates();
-        Set<Integer> preferredNeighbors = selectPreferredNeighbors(downloadingRates);
-    
-        // Print decides which friends to unchoke
-        //System.out.println("Exectuting choking logic...");
-        System.out.println("Peer " + peer.getPeerID() + " decides which friends to unchoke.");
-    
-        // Send unchoke messages to preferred neighbors
-        sendUnchokeMessages(preferredNeighbors);
-    
-        // Send choke messages to all other neighbors
-        sendChokeMessages(preferredNeighbors);
-    
-        // Update the set of unchoked neighbors
-        updateUnchokedNeighbors(preferredNeighbors);
+            // Calculate downloading rates and select preferred neighbors
+            Set<Integer> downloadingRates = calculateDownloadingRates();
+            Set<Integer> preferredNeighbors = selectPreferredNeighbors(downloadingRates);
+
+            // Print decides which friends to unchoke
+            // System.out.println("Exectuting choking logic...");
+            System.out.println("Peer " + peer.getPeerID() + " decides which friends to unchoke.");
+
+            // Send unchoke messages to preferred neighbors
+            sendUnchokeMessages(preferredNeighbors);
+
+            // Send choke messages to all other neighbors
+            sendChokeMessages(preferredNeighbors);
+
+            // Update the set of unchoked neighbors
+            updateUnchokedNeighbors(preferredNeighbors);
 
         }
-       
+
     }
 
     private void implementOptimisticUnchokingLogic() {
@@ -433,15 +429,15 @@ class CommunicationHandler implements Runnable {
 
         if (peer.getPeerID() == 1001) {
 
-        int optimisticUnchokedNeighbor = selectRandomChokedNeighbor();
-    
-        // Send unchoke message to the optimistically unchoked neighbor
-        sendUnchokeMessage(optimisticUnchokedNeighbor);
-    
-        // Update the set of unchoked neighbors
-        Set<Integer> optimisticUnchokedSet = new HashSet<>();
-        optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
-        updateUnchokedNeighbors(optimisticUnchokedSet);
+            int optimisticUnchokedNeighbor = selectRandomChokedNeighbor();
+
+            // Send unchoke message to the optimistically unchoked neighbor
+            sendUnchokeMessage(optimisticUnchokedNeighbor);
+
+            // Update the set of unchoked neighbors
+            Set<Integer> optimisticUnchokedSet = new HashSet<>();
+            optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
+            updateUnchokedNeighbors(optimisticUnchokedSet);
 
         }
     }
@@ -456,8 +452,7 @@ class CommunicationHandler implements Runnable {
         downloadingRates.add(1004);
         downloadingRates.add(1005);
 
-        //System.out.println("Downloading Rates: " + downloadingRates);
-
+        // System.out.println("Downloading Rates: " + downloadingRates);
 
         return downloadingRates;
     }
@@ -467,32 +462,32 @@ class CommunicationHandler implements Runnable {
         // Return a set of selected preferred neighbors
 
         Set<Integer> allNeighbors = getAllNeighbors();
-    
+
         // Sort neighbors based on downloading rates
         List<Integer> sortedNeighbors = sortNeighborsByDownloadingRates(downloadingRates);
-    
+
         // Select top k neighbors
-        Set<Integer> preferredNeighbors = new HashSet<>(sortedNeighbors.subList(0, Math.min(k, sortedNeighbors.size())));
+        Set<Integer> preferredNeighbors = new HashSet<>(
+                sortedNeighbors.subList(0, Math.min(k, sortedNeighbors.size())));
 
-        //System.out.println("Preferred Neighbors: " + preferredNeighbors);
+        // System.out.println("Preferred Neighbors: " + preferredNeighbors);
 
-    
         return preferredNeighbors;
     }
-    
+
     private List<Integer> sortNeighborsByDownloadingRates(Set<Integer> downloadingRates) {
 
         // Convert set to a list for sorting
         List<Integer> sortedNeighbors = new ArrayList<>(downloadingRates);
-    
+
         // Sort neighbors based on downloading rates
         sortedNeighbors.sort(Comparator.reverseOrder());
-    
+
         return sortedNeighbors;
     }
 
     private void sendUnchokeMessages(Set<Integer> preferredNeighbors) {
-        
+
         // Send 'unchoke' messages to preferred neighbors
 
         for (int neighbor : preferredNeighbors) {
@@ -501,29 +496,28 @@ class CommunicationHandler implements Runnable {
 
             // Print a message indicating the unchoke
             System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);
-            }
         }
-    
+    }
 
     private void sendChokeMessages(Set<Integer> preferredNeighbors) {
 
-    // Send 'choke' messages to non-preferred neighbors
-    Set<Integer> allNeighbors = getAllNeighbors();
+        // Send 'choke' messages to non-preferred neighbors
+        Set<Integer> allNeighbors = getAllNeighbors();
 
-    // Non-preferred neighbors
-    allNeighbors.removeAll(preferredNeighbors); 
+        // Non-preferred neighbors
+        allNeighbors.removeAll(preferredNeighbors);
 
-    for (int neighbor : allNeighbors) {
-        if (unchokedNeighbors.contains(neighbor)) {
+        for (int neighbor : allNeighbors) {
+            if (unchokedNeighbors.contains(neighbor)) {
 
-            // Send 'choke' message to the neighbor
-            byte[] chokeMessage = messageGenerator.createChokeMessage();
-            sendMessageToNeighbor(neighbor, chokeMessage);
+                // Send 'choke' message to the neighbor
+                byte[] chokeMessage = messageGenerator.createChokeMessage();
+                sendMessageToNeighbor(neighbor, chokeMessage);
 
-            // Print a message indicating the choke
-            System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
+                // Print a message indicating the choke
+                System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
+            }
         }
-    }
     }
 
     private void sendUnchokeMessage(int neighbor) {
@@ -557,11 +551,11 @@ class CommunicationHandler implements Runnable {
     }
 
     private Set<Integer> getChokedNeighbors() {
- 
+
         Set<Integer> allNeighbors = getAllNeighbors();
 
         // Choked neighbors
-        allNeighbors.removeAll(unchokedNeighbors); 
+        allNeighbors.removeAll(unchokedNeighbors);
         return allNeighbors;
     }
 
@@ -573,11 +567,12 @@ class CommunicationHandler implements Runnable {
         allNeighbors.add(1003);
         allNeighbors.add(1004);
         allNeighbors.add(1005);
-        
+
         return allNeighbors;
     }
 
     private Set<Integer> unchokedPeers = new HashSet<>();
+
     private void sendMessageToNeighbor(int neighbor, byte[] message) {
         // Send a message to a specific neighbor
         if (neighbor != peer.getPeerID()) {
@@ -591,7 +586,7 @@ class CommunicationHandler implements Runnable {
                 }
             }
         }
-    
+
         // Send 'unchoked' message to the neighbor
         sendMessage(message);
     }
@@ -615,12 +610,12 @@ class CommunicationHandler implements Runnable {
             sendMessage(pieceMessage);
             pieceIndex++;
 
-            try {
-                // introduces delay
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            // try {
+            // introduces delay
+            // Thread.sleep(50);
+            // } catch (InterruptedException e) {
+            // Thread.currentThread().interrupt();
+            // }
         }
     }
 }
