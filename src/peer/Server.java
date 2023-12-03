@@ -3,6 +3,7 @@ package peer;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -14,7 +15,17 @@ public class Server implements Runnable {
 
     public Server(PeerInfo peer) {
         this.peer = peer;
-        System.out.println("Peer " + peer.getPeerID() + " server created.");
+        //System.out.println("Peer " + peer.getPeerID() + " server created.");
+        //Create empty log file
+        try {
+            File log = new File("log_peer_" + peer.getPeerID() + ".log");
+            if(log.createNewFile()) {
+                return;
+            }
+        }
+        catch (IOException file) {
+            file.printStackTrace();
+        }  
     }
 
     @Override
