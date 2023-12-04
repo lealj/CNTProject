@@ -5,7 +5,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +30,12 @@ public class PeerInfo {
     // trackers
     private Map<Integer, byte[]> neighborBitfieldTracker;
     private Map<Integer, byte[]> interestMessageQueue; // id, interest/uninterest msg
+    private Map<Integer, ObjectOutputStream> neighborOutputStreams;
+    private ArrayList<Integer> handshakedNeighborIds;
 
+    private Map<Integer, ArrayList<Long>> neighborDownloadSpeeds;
+    private Map<Integer, ArrayList<Long>> sentReceivedPieceTracker;
+    private Map<Integer, Boolean> hasFileTracker;
     // test
     public int piecesReceived;
 
@@ -50,15 +57,42 @@ public class PeerInfo {
 
         this.neighborBitfieldTracker = new HashMap<>();
         this.interestMessageQueue = new HashMap<>();
+        this.neighborOutputStreams = new HashMap<>();
+        this.handshakedNeighborIds = new ArrayList<>();
+
+        this.neighborDownloadSpeeds = new HashMap<>();
+        this.sentReceivedPieceTracker = new HashMap<>();
+        this.hasFileTracker = new HashMap<>();
         // this.outputStream = null;
 
         // test
         this.piecesReceived = 0;
     }
 
+    public void sendMessage(int neighborID, byte[] msg) {
+        ObjectOutputStream outputStream = neighborOutputStreams.get(neighborID);
+        try {
+            if (outputStream == null) {
+                System.out.println("output stream null");
+                return;
+            }
+            // System.out.println("Peer " + peer.getPeerID() + " attempts to send message");
+            outputStream.flush(); // comment out
+            outputStream.writeObject(msg);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void SetCommonConfig(CommonConfig commonConfig) {
         this.commonConfig = commonConfig;
         this.lastPieceSize = commonConfig.getFileSize() % commonConfig.getPieceSize();
+    }
+
+    public void addNeighborOutputStream(int neighborID, ObjectOutputStream outputStream) {
+        System.out.println("Peer " + peerID + " sets outputStream for Peer " + neighborID);
+        neighborOutputStreams.put(neighborID, outputStream);
     }
 
     public void assembleFile() throws FileNotFoundException, IOException {
@@ -120,7 +154,7 @@ public class PeerInfo {
             hasNothing = false;
             filePieces[pieceIndex] = piece;
             updateBitfield(pieceIndex);
-            piecesReceived++;
+            this.piecesReceived++;
         }
 
         // check if we have all pieces
@@ -136,6 +170,7 @@ public class PeerInfo {
         if (count == numbPieces) {
             try {
                 assembleFile();
+                this.hasFile = true;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -147,6 +182,7 @@ public class PeerInfo {
     /* Bitfield management functions */
 
     public void createBitfieldMapEntry(int neighborID) {
+        // if
         if (!neighborBitfieldTracker.containsKey(neighborID)) {
             neighborBitfieldTracker.put(neighborID, null);
         }
@@ -154,9 +190,45 @@ public class PeerInfo {
 
     public void storeNeighborBitfield(int neighborID, byte[] neighborBitfield) {
         neighborBitfieldTracker.put(neighborID, neighborBitfield);
+        if (hasFile) {
+            if (Arrays.equals(neighborBitfield, this.bitfield)) {
+                hasFileTracker.put(neighborID, true);
+            }
+        }
+    }
+
+    public boolean allNeighborsHaveFile() {
+        if (hasFileTracker.keySet().size() == 9) {
+            for (Integer key : hasFileTracker.keySet()) {
+                if (hasFileTracker.get(key) == false) {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+        return true;
     }
 
     public byte[] getNeighborBitfield(int neighborID) {
+        byte[] neighborBitfield = neighborBitfieldTracker.get(neighborID);
+
+        if (neighborBitfield == null) {
+            int bitfieldSize = (int) Math.ceil((double) numbPieces / 8);
+            neighborBitfield = new byte[bitfieldSize];
+
+            for (int i = 0; i < bitfieldSize - 1; i++) {
+                if (this.hasFile) {
+                    this.bitfield[i] = (byte) 0xFF;
+                } else {
+                    this.bitfield[i] = (byte) 0x00;
+                }
+            }
+
+            neighborBitfield[bitfieldSize - 1] = 0x00;
+            neighborBitfieldTracker.put(neighborID, neighborBitfield);
+        }
+
         return neighborBitfieldTracker.get(neighborID);
     }
 
@@ -196,10 +268,6 @@ public class PeerInfo {
         return missingPieces;
     }
 
-    /*
-     * FIX REQUIRED - DUE TO FILE SIZE, BITFIELD GENERATED HAS ZEROS IF
-     * EVEN IF ENTIRE FILE IS TRANSFERED, YET "HAS FILE" BITFIELD IS ALL 1's
-     */
     public void initializeBitfield(int numbPieces) {
         int bitfieldSize = (int) Math.ceil((double) numbPieces / 8);
         this.bitfield = new byte[bitfieldSize];
@@ -229,6 +297,11 @@ public class PeerInfo {
     private void updateBitfield(int pieceIndex) {
         int byteIndex = pieceIndex / 8;
         int bitIndex = pieceIndex % 8;
+
+        if ((this.bitfield[byteIndex] >> (7 - bitIndex) & 1) == 1) {
+            System.out.println("Already have piece " + pieceIndex);
+        }
+
         this.bitfield[byteIndex] |= (1 << (7 - bitIndex));
         // System.out.println("Pieces Received: " + this.piecesReceived);
         if (this.piecesReceived == 132) {
@@ -237,6 +310,30 @@ public class PeerInfo {
     }
 
     /* GETTERS */
+    public void addPeerHandshakeEntry(int neighborID) {
+        // actually updates most trackers
+        if (!handshakedNeighborIds.contains(neighborID)) {
+            handshakedNeighborIds.add(neighborID);
+        }
+
+        if (!sentReceivedPieceTracker.containsKey(neighborID)) {
+            ArrayList<Long> defaultTimesEntry = new ArrayList<>(Arrays.asList(0L, 0L));
+            sentReceivedPieceTracker.put(neighborID, defaultTimesEntry);
+        }
+
+        if (!neighborDownloadSpeeds.containsKey(neighborID)) {
+            ArrayList<Long> defaultTimeDifferences = new ArrayList<>();
+            neighborDownloadSpeeds.put(neighborID, defaultTimeDifferences);
+        }
+
+        if (!hasFileTracker.containsKey(neighborID)) {
+            hasFileTracker.put(neighborID, false);
+        }
+    }
+
+    public ArrayList<Integer> getHandshakedPeers() {
+        return handshakedNeighborIds;
+    }
 
     public Map<Integer, byte[]> getNeighborBitfieldTracker() {
         return neighborBitfieldTracker;
@@ -280,7 +377,79 @@ public class PeerInfo {
         return lastPieceSize;
     }
 
-    // testing functions
+    public Map<Integer, ArrayList<Long>> getNeighborDownloadSpeeds() {
+        return neighborDownloadSpeeds;
+    }
+
+    public boolean neighborHasFile(int neighborID) {
+        return hasFileTracker.get(neighborID);
+    }
+
+    /* Sent received functions */
+
+    public void addSentEntry(int neighborID, long sentTime) {
+        // System.out.println("Adding sent entry");
+        ArrayList<Long> sentReceive = sentReceivedPieceTracker.get(neighborID);
+        if (sentReceive != null) {
+            if (sentReceive.get(0) == 0L) {
+                sentReceive.set(0, sentTime);
+            }
+        }
+
+    }
+
+    public void addReceivedEntry(int neighborID, long receivedTime) {
+        // System.out.println("Adding recv entry");
+
+        ArrayList<Long> sentReceive = sentReceivedPieceTracker.get(neighborID);
+        if (sentReceive != null) {
+            // check that rcv time is 0, and sent time is populated
+            if (sentReceive.get(1) == 0L && sentReceive.get(0) != 0L) {
+                sentReceive.set(1, receivedTime);
+
+                determineDownloadSpeed(neighborID);
+            } else {
+                // System.out.println("ISSUE");
+            }
+        }
+
+    }
+
+    private void determineDownloadSpeed(int neighborID) {
+        ArrayList<Long> sentReceived = sentReceivedPieceTracker.get(neighborID);
+        if (sentReceived == null) {
+            System.out.println("Sent rcv null");
+            return;
+        }
+
+        // record difference in time sent/received
+        long timeSent = sentReceived.get(0);
+        long timeReceived = sentReceived.get(1);
+
+        long timeDifference = timeReceived - timeSent;
+        // System.out.println("Time difference for Peer " + neighborID + ": " +
+        // timeDifference);
+
+        ArrayList<Long> timeDifferences = neighborDownloadSpeeds.get(neighborID);
+        // System.out.println("Peer " + peerID + " : " + neighborID);
+        timeDifferences.add(timeDifference);
+
+        // update sent received tracker
+        sentReceived.set(0, 0L);
+        sentReceived.set(1, 0L);
+    }
+
+    // reset when unchoked, begin new tracking interval
+    public void resetDownloadSpeeds(int neighborID) {
+        ArrayList<Long> timeDifferences = neighborDownloadSpeeds.get(neighborID);
+        if (timeDifferences != null) {
+            timeDifferences.clear();
+        } else {
+            System.out.println("Time diffs null");
+        }
+    }
+
+    /* TESTING FUNCTIONS */
     public void printBitfield(byte[] bitfield) {
         System.out.print("Bitfield: ");
         for (byte b : bitfield) {
