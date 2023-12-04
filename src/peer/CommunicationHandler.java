@@ -99,12 +99,12 @@ class CommunicationHandler implements Runnable {
                         implementChokingLogic();
                         lastChokingTime = currentTime;
                     }
+                }
 
-                    // Implement optimistic unchoking logic every m seconds
-                    if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
-                        implementOptimisticUnchokingLogic();
-                        lastOptimisticUnchokingTime = currentTime;
-                    }
+                // Implement optimistic unchoking logic every m seconds
+                if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
+                    implementOptimisticUnchokingLogic();
+                    lastOptimisticUnchokingTime = currentTime;
                 }
 
             } catch (EOFException e) {
@@ -159,7 +159,7 @@ class CommunicationHandler implements Runnable {
             peer.createBitfieldMapEntry(neighborID);
             this.otherPeerID = neighborID;
             peer.addNeighborOutputStream(otherPeerID, outputStream);
-            // System.out.println("Handshaked with Peer " + otherPeerID);
+            System.out.println("Handshaked with Peer " + otherPeerID);
             peer.addPeerHandshakeEntry(neighborID);
 
             // Since handshake has already been completed, TCP connected, print for both
@@ -354,6 +354,12 @@ class CommunicationHandler implements Runnable {
         // ensure we don't already have the piece
         peer.receivePiece(pieceIndex, piece);
 
+        // send have messages
+        ArrayList<Integer> handshakedPeers = peer.getHandshakedPeers();
+        for (int neighbor : handshakedPeers) {
+            byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
+            peer.sendMessage(neighbor, haveMessage);
+        }
         try {
             Date date = new Date();
 
@@ -366,10 +372,6 @@ class CommunicationHandler implements Runnable {
         } catch (Exception error) {
             error.printStackTrace();
         }
-
-        // send have message
-        byte[] haveMessage = messageGenerator.createHaveMessage(pieceIndex);
-        sendMessage(haveMessage);
 
         // check neighbor bitfields, populate interestMessageQueue w/ interest msgs
         populateInterestMessageQueue();
@@ -454,6 +456,7 @@ class CommunicationHandler implements Runnable {
         // get piece index field from message - Update other bitfield
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
 
+        System.out.println("Have msg piece index: " + pieceIndex);
         try {
             Date date = new Date();
 
@@ -515,13 +518,16 @@ class CommunicationHandler implements Runnable {
             }
         }
 
-        if (peer.getPeerID() == 1001) {
-            // Send unchoke messages to preferred neighbors
-            sendUnchokeMessages(preferredNeighbors);
+        // if (peer.getPeerID() == 1001) {
+        // Send unchoke messages to preferred neighbors
+        sendUnchokeMessages(preferredNeighbors);
 
-            // Send choke messages to all other neighbors
-            sendChokeMessages(preferredNeighbors);
-        }
+        // Send choke messages to all other neighbors
+        sendChokeMessages(preferredNeighbors);
+
+        // Update the set of unchoked neighbors
+        // updateUnchokedNeighbors(preferredNeighbors);
+        // }
     }
 
     private void implementOptimisticUnchokingLogic() {
@@ -534,6 +540,13 @@ class CommunicationHandler implements Runnable {
             try {
                 Date date = new Date();
 
+                // Send unchoke message to the optimistically unchoked neighbor
+                sendUnchokeMessage(optimisticUnchokedNeighbor);
+
+                // Update the set of unchoked neighbors
+                Set<Integer> optimisticUnchokedSet = new HashSet<>();
+                optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
+
                 FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
                 log.write(
                         "[" + date + "]: " + "Peer " + peer.getPeerID() + " has the optimistically unchoked neighbor "
@@ -543,14 +556,7 @@ class CommunicationHandler implements Runnable {
                 error.printStackTrace();
             }
 
-            // Send unchoke message to the optimistically unchoked neighbor
-            sendUnchokeMessage(optimisticUnchokedNeighbor);
-
-            // Update the set of unchoked neighbors
-            Set<Integer> optimisticUnchokedSet = new HashSet<>();
-            optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
-
-            unchokedNeighbors.add(optimisticNeighbor);
+            unchokedNeighbors.add(optimisticUnchokedNeighbor);
             chokedNeighbors.remove(optimisticUnchokedNeighbor);
 
             this.optimisticNeighbor = optimisticUnchokedNeighbor;
@@ -632,7 +638,7 @@ class CommunicationHandler implements Runnable {
         // Convert set to a list for sorting
         List<Integer> sortedNeighbors = new ArrayList<>(downloadingRates.keySet());
         for (int i : sortedNeighbors) {
-            System.out.println("Peer " + i + ", Rate: " + downloadingRates.get(i));
+            // System.out.println("Peer " + i + ", Rate: " + downloadingRates.get(i));
         }
 
         sortedNeighbors.sort(Comparator.comparingLong(downloadingRates::get));
@@ -864,5 +870,25 @@ class CommunicationHandler implements Runnable {
         int pieceIndex = 0;
         byte[] requestMessage = messageGenerator.createRequestMessage(pieceIndex);
         sendMessage(requestMessage);
+        for (int i = 0; i < 133; i++) {
+            // System.out.println(pieceIndex);
+            // get piece data
+            byte[] filePiece = peer.transferPiece(pieceIndex);
+            // System.out.println("File Piece Length: " + filePiece.length);
+            // printPieceInHex(i, filePiece);
+
+            // send piece message
+            byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
+
+            sendMessage(pieceMessage);
+            pieceIndex++;
+
+            // try {
+            // introduces delay
+            // Thread.sleep(50);
+            // } catch (InterruptedException e) {
+            // Thread.currentThread().interrupt();
+            // }
+        }
     }
 }

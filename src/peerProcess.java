@@ -79,6 +79,9 @@ public class peerProcess {
             boolean hasFile = Integer.parseInt(parts[3]) == 1;
 
             PeerInfo peer = new PeerInfo(peerID, peerAddress, peerPort, hasFile);
+            System.out.println("Peer Info cfg: ");
+            System.out.println("Peer id: " + peerID + " peerAddress: " + peerAddress + " peerPort: " + peerPort
+                    + " hasFile: " + hasFile);
             peers.add(peer);
         }
         scanner.close();
@@ -124,6 +127,8 @@ public class peerProcess {
             }
         }
         scanner.close();
+        System.out.println("numPreferredNeighbors: " + numPreferredNeighbors + " unchokingInteral: " + unchokingInterval
+                + " optomisticUnchokingInterval: " + optimisticUnchokingInterval + " filename: " + fileName);
         return new CommonConfig(numPreferredNeighbors, unchokingInterval, optimisticUnchokingInterval, fileName,
                 fileSize, pieceSize);
     }

@@ -151,28 +151,15 @@ public class MessageGenerator {
     }
 
     public byte[] createUnchokeMessage() {
-        int totalLength = 1;
-        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+        byte[] message = new byte[5];
+        ByteBuffer buffer = ByteBuffer.wrap(message);
 
-        ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
-        lengthBuffer.putInt(totalLength);
-        byte[] lengthBytes = lengthBuffer.array();
+        // message length (excluding itself)
+        buffer.putInt(1);
+        // message type: unchoke
+        buffer.put((byte) 1);
 
-        byte[] messageTypeBytes = { 1 };
-        try {
-            byteOutputStream.write(lengthBytes);
-            byteOutputStream.write(messageTypeBytes);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                byteOutputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return byteOutputStream.toByteArray();
+        return message;
     }
 
     public byte[] createInterestedMessage() {
