@@ -6,7 +6,9 @@ import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,27 +26,30 @@ class CommunicationHandler implements Runnable {
     private PeerInfo peer;
     private int otherPeerID;
     private boolean allPeersHaveFile;
+    int chokeCounter = 0;
 
     private MessageGenerator messageGenerator;
     private MessageInterpretor messageInterpretor;
 
     // Choking interval in milliseconds
-    private static final int P_INTERVAL = 25;
+    private static final int P_INTERVAL = 200;
 
     // Optimistic unchoking interval in milliseconds (60 seconds)
-    private static final int M_INTERVAL = 25;
+    private static final int M_INTERVAL = 200;
 
     long lastChokingTime = System.currentTimeMillis();
     long lastOptimisticUnchokingTime = System.currentTimeMillis();
 
     private Set<Integer> chokedNeighbors = new HashSet<>();
     private Set<Integer> unchokedNeighbors = new HashSet<>();
+    private Integer optimisticNeighbor;
     private int k = 1; // Number of preferred neighbors
 
     public CommunicationHandler(ObjectInputStream inputStream, ObjectOutputStream outputStream, PeerInfo peer,
             Socket socket) {
         this.peer = peer;
         this.otherPeerID = -1;
+        this.optimisticNeighbor = -1;
 
         this.inputStream = inputStream;
         this.outputStream = outputStream;
@@ -70,6 +75,13 @@ class CommunicationHandler implements Runnable {
                 // if a thread is stuck right here is probably the problem
                 Object receivedMessage = inputStream.readObject();
 
+                try {
+                    // introduces delay
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
                 if (receivedMessage instanceof byte[]) {
                     byte[] msg = (byte[]) receivedMessage;
                     interpretMessage(msg);
@@ -78,13 +90,13 @@ class CommunicationHandler implements Runnable {
                 // Implement choking logic every p seconds
                 long currentTime = System.currentTimeMillis();
 
-                if (peer.getPeerID() == 1001) {
-                    if (currentTime - lastChokingTime >= P_INTERVAL) {
-                        System.out.println("Executing choking logic. Current time: " + currentTime);
-                        implementChokingLogic();
-                        lastChokingTime = currentTime;
-                    }
+                // if (peer.getPeerID() == 1001) {
+                if (currentTime - lastChokingTime >= P_INTERVAL) {
+                    // System.out.println("Executing choking logic. Current time: " + currentTime);
+                    implementChokingLogic();
+                    lastChokingTime = currentTime;
                 }
+                // }
 
                 // Implement optimistic unchoking logic every m seconds
                 if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
@@ -125,12 +137,6 @@ class CommunicationHandler implements Runnable {
 
     public void interpretMessage(byte[] msg) {
         // System.out.println("Peer " + peer.getPeerID() + " received message: " + msg);
-        try {
-            // introduces delay
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
 
         if (msg.length == 32) {
             // dealing with handshake message - send a bitfield
@@ -218,10 +224,15 @@ class CommunicationHandler implements Runnable {
         byte[] filePiece = peer.transferPiece(pieceIndex);
 
         // send piece message
+        /* LEAL */
+
+        // add unchoked check
+
         byte[] pieceMessage = messageGenerator.createPieceMessage(pieceIndex, filePiece);
 
-        sendMessage(pieceMessage);
+        peer.addSentEntry(otherPeerID, System.currentTimeMillis());
 
+        sendMessage(pieceMessage);
     }
 
     /*
@@ -237,7 +248,7 @@ class CommunicationHandler implements Runnable {
     // Needs updating once choking/unchoking/preferred neighbors implemented
     private void receivedPieceMessage(byte[] msg) {
         // download the piece
-        System.out.println("Peer " + peer.getPeerID() + " received `Piece` from " + otherPeerID);
+
         int pieceSize = peer.getPieceSize();
         if (peer.getNumbPieces() == 133) {
             pieceSize = peer.getLastPieceSize();
@@ -246,7 +257,7 @@ class CommunicationHandler implements Runnable {
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
         byte[] piece = messageInterpretor.getPieceContent(pieceSize, msg);
         // printPieceInHex(pieceIndex, piece);
-
+        System.out.println("Peer " + peer.getPeerID() + " received `Piece " + pieceIndex + "` from " + otherPeerID);
         // ensure we don't already have the piece
         peer.receivePiece(pieceIndex, piece);
 
@@ -284,12 +295,15 @@ class CommunicationHandler implements Runnable {
         }
 
         List<Integer> pieceDifference = peer.getPiecesDifference(neighborBitfield);
-        System.out.println("Piece difference Size: " + pieceDifference.size());
+
+        // System.out.println("Piece difference Size: " + pieceDifference.size());
         if (pieceDifference.size() > 0) {
             // randomly select pieceIndex
             Random random = new Random();
             int randomIndex = random.nextInt(pieceDifference.size());
             int randomPieceIndex = pieceDifference.get(randomIndex);
+
+            System.out.println("Requesting piece index: " + randomPieceIndex);
 
             byte[] requestMessage = messageGenerator.createRequestMessage(randomPieceIndex);
             sendMessage(requestMessage);
@@ -332,11 +346,16 @@ class CommunicationHandler implements Runnable {
             sendMessage(messageToSend);
         }
 
+        peer.addReceivedEntry(otherPeerID, System.currentTimeMillis());
+
         // get piece index field from message - Update other bitfield
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
 
+        System.out.println("Have msg piece index: " + pieceIndex);
+
         // get current neighbor bitfield
         byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
+
         // update it using the piece index
         if (neighborBitfield != null) {
             int byteIndex = pieceIndex / 8;
@@ -344,39 +363,55 @@ class CommunicationHandler implements Runnable {
             neighborBitfield[byteIndex] |= (1 << bitIndex);
             peer.storeNeighborBitfield(otherPeerID, neighborBitfield);
         }
+
     }
 
     /* CHOKING RELATED */
 
     private void implementChokingLogic() {
 
-        // long currentTime = System.currentTimeMillis();
-        // System.out.println("Current time: " + currentTime);
-        // System.out.println("Last choking time: " + lastChokingTime);
-
         if (peer.getPeerID() == 1001) {
-
-            // Calculate downloading rates and select preferred neighbors
-            Set<Integer> downloadingRates = calculateDownloadingRates();
-            Set<Integer> preferredNeighbors = selectPreferredNeighbors(downloadingRates);
-            // ^ 1003
-
-            // Print decides which friends to unchoke
-            // System.out.println("Exectuting choking logic...");
-            // System.out.println("Peer " + peer.getPeerID() + " decides which friends to
-            // unchoke.");
-
-            // Send unchoke messages to preferred neighbors
-            sendUnchokeMessages(preferredNeighbors);
-
-            // Send choke messages to all other neighbors
-            sendChokeMessages(preferredNeighbors);
-
-            // Update the set of unchoked neighbors
-            updateUnchokedNeighbors(preferredNeighbors);
-
+            if (peer.allNeighborsHaveFile()) {
+                System.out.println("All peers have file");
+                System.exit(0);
+            }
         }
 
+        Set<Integer> preferredNeighbors = null;
+
+        if (peer.getHasFile()) {
+            // assume handshaked are interested
+            ArrayList<Integer> handshakedPeers = peer.getHandshakedPeers();
+            Collections.shuffle(handshakedPeers);
+            preferredNeighbors = new HashSet<>(handshakedPeers.subList(0, Math.min(k, handshakedPeers.size())));
+            for (int id : preferredNeighbors) {
+                if (peer.neighborHasFile(id) == true) {
+                    preferredNeighbors.remove(id);
+                }
+            }
+
+        } else {
+            // Calculate downloading rates and select preferred neighbors
+            Map<Integer, Long> downloadingRates = calculateDownloadingRates();
+            preferredNeighbors = selectPreferredNeighbors(downloadingRates);
+
+            for (int id : preferredNeighbors) {
+                if (peer.neighborHasFile(id) == true) {
+                    preferredNeighbors.remove(id);
+                }
+            }
+        }
+
+        // if (peer.getPeerID() == 1001) {
+        // Send unchoke messages to preferred neighbors
+        sendUnchokeMessages(preferredNeighbors);
+
+        // Send choke messages to all other neighbors
+        sendChokeMessages(preferredNeighbors);
+
+        // Update the set of unchoked neighbors
+        // updateUnchokedNeighbors(preferredNeighbors);
+        // }
     }
 
     private void implementOptimisticUnchokingLogic() {
@@ -392,34 +427,55 @@ class CommunicationHandler implements Runnable {
             // Update the set of unchoked neighbors
             Set<Integer> optimisticUnchokedSet = new HashSet<>();
             optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
-            updateUnchokedNeighbors(optimisticUnchokedSet);
 
+            unchokedNeighbors.add(optimisticUnchokedNeighbor);
+            chokedNeighbors.remove(optimisticUnchokedNeighbor);
+
+            this.optimisticNeighbor = optimisticUnchokedNeighbor;
         }
     }
 
-    private Set<Integer> calculateDownloadingRates() {
+    private Map<Integer, Long> calculateDownloadingRates() {
         // Calculate downloading rates for all neighbors
         // Return a set of neighbors with their downloading rates
 
-        Set<Integer> downloadingRates = new HashSet<>();
-        downloadingRates.add(1002);
-        downloadingRates.add(1003);
-        // downloadingRates.add(1004);
-        // downloadingRates.add(1005);
+        for (int i : unchokedNeighbors) {
+            System.out.print("Unchoked: " + i);
+        }
+        System.out.println();
 
-        // System.out.println("Downloading Rates: " + downloadingRates);
+        Map<Integer, Long> downloadingRates = new HashMap<>();
+
+        // adding null entries for all peers in downloading rates
+        for (int n : peer.getHandshakedPeers()) {
+            downloadingRates.put(n, null);
+        }
+
+        Map<Integer, ArrayList<Long>> neighborDownloadSpeeds = peer.getNeighborDownloadSpeeds();
+        for (Integer n : neighborDownloadSpeeds.keySet()) {
+            ArrayList<Long> recordedDownloadTimes = neighborDownloadSpeeds.get(n);
+            if (recordedDownloadTimes != null && recordedDownloadTimes.size() != 0) {
+                long downloadingSpeedTotal = 0;
+                for (long timeDiff : recordedDownloadTimes) {
+                    downloadingSpeedTotal += timeDiff;
+                }
+
+                long downloadSpeedAverage = downloadingSpeedTotal / recordedDownloadTimes.size();
+                downloadingRates.put(n, downloadSpeedAverage);
+            }
+        }
 
         return downloadingRates;
     }
 
-    private Set<Integer> selectPreferredNeighbors(Set<Integer> downloadingRates) {
+    private Set<Integer> selectPreferredNeighbors(Map<Integer, Long> downloadingRates) {
         // Select k preferred neighbors based on downloading rates
         // Return a set of selected preferred neighbors
 
-        Set<Integer> allNeighbors = getAllNeighbors();
-
         // Sort neighbors based on downloading rates
         List<Integer> sortedNeighbors = sortNeighborsByDownloadingRates(downloadingRates);
+
+        /* ERROR HERE, 1003 rate is null */
 
         // Select top k neighbors
         Set<Integer> preferredNeighbors = new HashSet<>(
@@ -430,13 +486,15 @@ class CommunicationHandler implements Runnable {
         return preferredNeighbors;
     }
 
-    private List<Integer> sortNeighborsByDownloadingRates(Set<Integer> downloadingRates) {
+    private List<Integer> sortNeighborsByDownloadingRates(Map<Integer, Long> downloadingRates) {
 
         // Convert set to a list for sorting
-        List<Integer> sortedNeighbors = new ArrayList<>(downloadingRates);
+        List<Integer> sortedNeighbors = new ArrayList<>(downloadingRates.keySet());
+        for (int i : sortedNeighbors) {
+            System.out.println("Peer " + i + ", Rate: " + downloadingRates.get(i));
+        }
 
-        // Sort neighbors based on downloading rates
-        sortedNeighbors.sort(Comparator.reverseOrder());
+        sortedNeighbors.sort(Comparator.comparingLong(downloadingRates::get));
 
         return sortedNeighbors;
     }
@@ -451,36 +509,29 @@ class CommunicationHandler implements Runnable {
             }
             byte[] unchokeMessage = messageGenerator.createUnchokeMessage();
             sendMessageToNeighbor(neighbor, unchokeMessage);
+            unchokedNeighbors.add(neighbor);
+            chokedNeighbors.remove(neighbor);
 
             // Print a message indicating the unchoke
             System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);
         }
     }
 
-    /* LEAL */
     private void sendChokeMessages(Set<Integer> preferredNeighbors) {
 
         // Send 'choke' messages to non-preferred neighbors
         Set<Integer> allNeighbors = getAllNeighbors();
 
-        for (int i : allNeighbors) {
-            // System.out.println("All neighbor: " + i);
-        }
-        // System.out.println();
-
         // Non-preferred neighbors
         allNeighbors.removeAll(preferredNeighbors);
-
-        for (int i : allNeighbors) {
-            // System.out.println("All neighbor: " + i);
-        }
-        // System.out.println();
 
         for (int neighbor : allNeighbors) {
             if (unchokedNeighbors.contains(neighbor)) {
                 // Send 'choke' message to the neighbor
                 byte[] chokeMessage = messageGenerator.createChokeMessage();
                 sendMessageToNeighbor(neighbor, chokeMessage);
+                unchokedNeighbors.remove(neighbor);
+                chokedNeighbors.add(neighbor);
 
                 // Print a message indicating the choke
                 System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
@@ -498,12 +549,6 @@ class CommunicationHandler implements Runnable {
 
             System.out.println("Peer " + peer.getPeerID() + " unchoked (optimistic) " + neighbor);
         }
-    }
-
-    private void updateUnchokedNeighbors(Set<Integer> newlyUnchokedNeighbors) {
-        // Update the set of unchoked neighbors
-        unchokedNeighbors.clear();
-        unchokedNeighbors.addAll(newlyUnchokedNeighbors);
     }
 
     private int selectRandomChokedNeighbor() {
@@ -534,7 +579,11 @@ class CommunicationHandler implements Runnable {
         allNeighbors.add(1002);
         allNeighbors.add(1003);
         allNeighbors.add(1004);
-        // allNeighbors.add(1005);
+        allNeighbors.add(1005);
+        allNeighbors.add(1006);
+        allNeighbors.add(1007);
+        allNeighbors.add(1008);
+        allNeighbors.add(1009);
 
         allNeighbors.remove(peer.getPeerID());
 
