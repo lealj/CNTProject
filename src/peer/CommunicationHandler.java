@@ -106,6 +106,18 @@ class CommunicationHandler implements Runnable {
             } catch (SocketException e) {
                 System.err.println("Socket closed. Continuing... " + peer.getPeerID());
 
+                try {
+                Date date = new Date();
+                
+                FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
+                log.write(
+                    "[" + date + "]: " + "Peer " + peer.getPeerID() + " has downloaded the complete file.\n");
+                log.close();
+                }
+                catch(Exception error) {
+                    error.printStackTrace();
+                }
+        
                 // COULD CAUSE ISSUES IN TESTING *****************************
                 System.exit(0);
 
@@ -178,6 +190,17 @@ class CommunicationHandler implements Runnable {
                     break;
                 case CHOKE:
                     // implementChokingLogic();
+                    try {
+                        Date date = new Date();
+                    
+                        FileWriter log = new FileWriter("log_peer_" + otherPeerID + ".log", true);
+                        log.write(
+                            "[" + date + "]: " + "Peer " + otherPeerID + " is choked by " + peer.getPeerID() + ".\n");
+                        log.close();
+                    }
+                    catch(Exception error) {
+                        error.printStackTrace();
+                    }
                     break;
                 case INTERESTED:
                     //System.out.println("Peer " + peer.getPeerID() + " received `Interest` from " + otherPeerID);
@@ -208,6 +231,17 @@ class CommunicationHandler implements Runnable {
                     // send REQUEST message for piece it does not have and has not request from
                     // other neighbors
                     // implementChokingLogic();
+                    try {
+                        Date date = new Date();
+                    
+                        FileWriter log = new FileWriter("log_peer_" + otherPeerID + ".log", true);
+                        log.write(
+                            "[" + date + "]: " + "Peer " + otherPeerID + " has been unchoked by " + peer.getPeerID() + ".\n");
+                        log.close();
+                    }
+                    catch(Exception error) {
+                        error.printStackTrace();
+                    }
                     break;
                 case UNINTERESTED:
                     // log uninterested - nothing else really specified ?
@@ -387,6 +421,18 @@ class CommunicationHandler implements Runnable {
         // get piece index field from message - Update other bitfield
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
 
+        try {
+            Date date = new Date();
+
+            FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
+            log.write(
+                "[" + date + "]: " + "Peer " + peer.getPeerID() + " received the 'have' message from " + otherPeerID + " for the piece " + pieceIndex + ".\n");
+            log.close();
+        }
+        catch(Exception error) {
+            error.printStackTrace();
+        }
+
         // get current neighbor bitfield
         byte[] neighborBitfield = peer.getNeighborBitfield(otherPeerID);
         // update it using the piece index
@@ -498,7 +544,6 @@ class CommunicationHandler implements Runnable {
 
         int optimisticUnchokedNeighbor = selectRandomChokedNeighbor();
         
-        /*TODO: FIX FUNCTION
         try {
             Date date = new Date();
 
@@ -510,7 +555,6 @@ class CommunicationHandler implements Runnable {
         catch(Exception error) {
             error.printStackTrace();
         }
-        */
     
         // Send unchoke message to the optimistically unchoked neighbor
         sendUnchokeMessage(optimisticUnchokedNeighbor);
@@ -552,8 +596,6 @@ class CommunicationHandler implements Runnable {
                 sortedNeighbors.subList(0, Math.min(k, sortedNeighbors.size())));
 
         //System.out.println("Preferred Neighbors: " + preferredNeighbors);
-        //TODO: Function applies to non-established peers, creates logs preemptively 
-        /*
         try {
             Date date = new Date();
 
@@ -574,7 +616,6 @@ class CommunicationHandler implements Runnable {
         catch(Exception error) {
             error.printStackTrace();
         }
-        */
 
         return preferredNeighbors;
     }
@@ -599,20 +640,7 @@ class CommunicationHandler implements Runnable {
             sendMessageToNeighbor(neighbor, unchokeMessage);
 
             // Print a message indicating the unchoke
-            //System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);
-            /*TODO: FIX FUNCTION
-            try {
-                Date date = new Date();
-
-                FileWriter log = new FileWriter("log_peer_" + neighbor + ".log", true);
-                log.write(
-                    "[" + date + "]: " + "Peer " + neighbor + " has been unchoked by " + peer.getPeerID() + ".\n");
-                log.close();
-            }
-            catch(Exception error) {
-                error.printStackTrace();
-            }
-            */
+            //System.out.println("Peer " + peer.getPeerID() + " unchokes " + neighbor);  
         }
     }
     
@@ -634,19 +662,6 @@ class CommunicationHandler implements Runnable {
 
             // Print a message indicating the choke
             //System.out.println("Peer " + peer.getPeerID() + " choked " + neighbor);
-            /*TODO: FIX FUNCTION
-            try {
-                Date date = new Date();
-
-                FileWriter log = new FileWriter("log_peer_" + neighbor + ".log", true);
-                log.write(
-                    "[" + date + "]: " + "Peer " + neighbor + " is choked by " + peer.getPeerID() + ".\n");
-                log.close();
-            }
-            catch(Exception error) {
-                error.printStackTrace();
-            }
-            */
             }
         }
     }
@@ -727,18 +742,6 @@ class CommunicationHandler implements Runnable {
         //System.out.println("Peer " + peer.getPeerID() + " received `Request` from " + otherPeerID);
         // get index from msg
         int pieceIndex = messageInterpretor.getPieceIndex(msg);
-
-        try {
-            Date date = new Date();
-
-            FileWriter log = new FileWriter("log_peer_" + peer.getPeerID() + ".log", true);
-            log.write(
-                "[" + date + "]: " + "Peer " + peer.getPeerID() + " received the 'have' message from " + otherPeerID + " for the piece " + pieceIndex + ".\n");
-            log.close();
-        }
-        catch(Exception error) {
-            error.printStackTrace();
-        }
 
         for (int i = 0; i < 133; i++) {
             // System.out.println(pieceIndex);
