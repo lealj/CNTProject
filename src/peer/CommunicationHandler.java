@@ -93,18 +93,18 @@ class CommunicationHandler implements Runnable {
                 // Implement choking logic every p seconds
                 long currentTime = System.currentTimeMillis();
 
-                // if (peer.getPeerID() == 1001) {
-                if (currentTime - lastChokingTime >= P_INTERVAL) {
-                    // System.out.println("Executing choking logic. Current time: " + currentTime);
-                    implementChokingLogic();
-                    lastChokingTime = currentTime;
-                }
-                // }
+                if (peer.getPeerID() == 1001) {
+                    if (currentTime - lastChokingTime >= P_INTERVAL) {
+                        // System.out.println("Executing choking logic. Current time: " + currentTime);
+                        implementChokingLogic();
+                        lastChokingTime = currentTime;
+                    }
 
-                // Implement optimistic unchoking logic every m seconds
-                if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
-                    implementOptimisticUnchokingLogic();
-                    lastOptimisticUnchokingTime = currentTime;
+                    // Implement optimistic unchoking logic every m seconds
+                    if (currentTime - lastOptimisticUnchokingTime >= M_INTERVAL) {
+                        implementOptimisticUnchokingLogic();
+                        lastOptimisticUnchokingTime = currentTime;
+                    }
                 }
 
             } catch (EOFException e) {
@@ -515,16 +515,13 @@ class CommunicationHandler implements Runnable {
             }
         }
 
-        // if (peer.getPeerID() == 1001) {
-        // Send unchoke messages to preferred neighbors
-        sendUnchokeMessages(preferredNeighbors);
+        if (peer.getPeerID() == 1001) {
+            // Send unchoke messages to preferred neighbors
+            sendUnchokeMessages(preferredNeighbors);
 
-        // Send choke messages to all other neighbors
-        sendChokeMessages(preferredNeighbors);
-
-        // Update the set of unchoked neighbors
-        // updateUnchokedNeighbors(preferredNeighbors);
-        // }
+            // Send choke messages to all other neighbors
+            sendChokeMessages(preferredNeighbors);
+        }
     }
 
     private void implementOptimisticUnchokingLogic() {
@@ -552,8 +549,11 @@ class CommunicationHandler implements Runnable {
             // Update the set of unchoked neighbors
             Set<Integer> optimisticUnchokedSet = new HashSet<>();
             optimisticUnchokedSet.add(optimisticUnchokedNeighbor);
-            updateUnchokedNeighbors(optimisticUnchokedSet);
 
+            unchokedNeighbors.add(optimisticNeighbor);
+            chokedNeighbors.remove(optimisticUnchokedNeighbor);
+
+            this.optimisticNeighbor = optimisticUnchokedNeighbor;
         }
     }
 
